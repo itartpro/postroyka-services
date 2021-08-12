@@ -1,0 +1,171 @@
+networks:
+  docknet:
+    external: true
+
+services:
+  certs:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    build: ./certs
+    volumes:
+      - ./certs:/appservices/certs
+
+  database:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    image: postgres:alpine
+    restart: unless-stopped
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    networks:
+      - docknet
+
+  pgadmin:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    ports:
+      - 8081:8081
+    tty: true
+    networks:
+      - docknet
+    depends_on:
+      - database
+    volumes:
+      - ./pgadmin/storage:/var/lib/pgadmin/storage/
+    environment:
+      PGADMIN_LISTEN_PORT: 8081
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.pgadmin.loadbalancer.server.port=8081
+
+  gowebbackend:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    build:
+      context: ./goservices
+      dockerfile: gowebbackend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - 1200:1200
+    volumes:
+      - ./certs:/appservices/certs
+      - ./uploads:/appservices/uploads
+      - ./goservices/shared:/appservices/goservices/shared
+      - ./goservices/gowebbackend:/appservices/goservices/gowebbackend
+    tty: true
+    networks:
+      - docknet
+    depends_on:
+      - certs
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.gowebbackend.loadbalancer.server.port=1200
+
+  gpics:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    build:
+      context: ./goservices
+      dockerfile: gpics/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./certs:/appservices/certs
+      - ./uploads:/appservices/uploads
+      - ./goservices/shared:/appservices/goservices/shared
+      - ./goservices/gpics:/appservices/goservices/gpics
+    tty: true
+    networks:
+      - docknet
+    depends_on:
+      - certs
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.gpics.loadbalancer.server.port=50001
+
+  auth:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    build:
+      context: ./goservices
+      dockerfile: auth/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./certs:/appservices/certs
+      - ./uploads:/appservices/uploads
+      - ./goservices/shared:/appservices/goservices/shared
+      - ./goservices/auth:/appservices/goservices/auth
+    tty: true
+    networks:
+      - docknet
+    depends_on:
+      - certs
+      - database
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.auth.loadbalancer.server.port=50003
+
+  cats:
+    logging:
+      options:
+        max-size: 5m
+    env_file:
+      - allvars.env
+    build:
+      context: ./goservices
+      dockerfile: cats/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./certs:/appservices/certs
+      - ./uploads:/appservices/uploads
+      - ./goservices/shared:/appservices/goservices/shared
+      - ./goservices/cats:/appservices/goservices/cats
+    tty: true
+    networks:
+      - docknet
+    depends_on:
+      - certs
+      - database
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.cats.loadbalancer.server.port=50004
+
+  nginx:
+    image: nginx:alpine
+    logging:
+      options:
+        max-size: 5m
+    restart: unless-stopped
+    tty: true
+    networks:
+      - docknet
+    volumes:
+      - ./uploads:/var/www/uploads
+      - ./nginx/conf.d:/etc/nginx/conf.d/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`static.client.local`)"
+      - "traefik.http.routers.nginx.entrypoints=web"
+      - "traefik.http.middlewares.nginxlimit.ratelimit.average=20"
+      - "traefik.http.middlewares.nginxlimit.ratelimit.burst=60"
+      - "traefik.http.middlewares.nginxlimit.ratelimit.period=3"
+      - "traefik.http.routers.nginx.middlewares=nginxlimit@docker"

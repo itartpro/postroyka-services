@@ -1,0 +1,23 @@
+.idea
+*.iml
+out
+gen
+# database
+/db/*
+/certs/ca.*
+/certs/jwtkey*
+/certs/service*
+
+/uploads/*
+!/uploads/logs
+!/uploads/temp
+!/uploads/index.html
+
+# services
+/goservices/gowebbackend/*
+!/goservices/gowebbackend/Dockerfile
+!/goservices/gowebbackend/gowebbackend
+
+/goservices/gpics/*
+!/goservices/gpics/Dockerfile
+!/goservices/gpics/gpics

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package grpcc;
+option go_package="../grpcc";
+
+message Data {
+  string address = 1;
+  string action = 2;
+  string instructions = 3;
+}
+
+message DataRequest {
+  Data data = 1;
+}
+
+message DataResponse {
+  string result = 1;
+}
+
+service CommunicationService{
+  //Unary
+  rpc PassData(DataRequest) returns (DataResponse) {};
+}
+
+//protoc grpcc.proto --go_out=plugins=grpc:.
