@@ -1,11 +1,11 @@
 ### For dev
-FROM golang:alpine
-WORKDIR /appservices/goservices/shared
-COPY shared .
-WORKDIR /appservices/goservices/gpics
-COPY gpics .
-RUN go mod download
-ENTRYPOINT go run main.go
+#FROM golang:alpine
+#WORKDIR /appservices/goservices/shared
+#COPY shared .
+#WORKDIR /appservices/goservices/gpics
+#COPY gpics .
+#RUN go mod download
+#ENTRYPOINT go run main.go
 
 #### For build
 #FROM golang:alpine
@@ -21,9 +21,9 @@ ENTRYPOINT go run main.go
 # CMD go build -ldflags="-s -w" -o gpics && upx -9 -k gpics && ./gpics
 
 #### For production
-#FROM alpine
-#WORKDIR /appservices/goservices/shared
-#COPY shared .
-#WORKDIR /appservices/goservices/gpics
-#COPY gpics .
-#CMD chmod +x ./gpics && ./gpics
+FROM alpine
+WORKDIR /appservices/goservices/shared
+COPY shared .
+WORKDIR /appservices/goservices/gpics
+COPY gpics .
+CMD chmod +x ./gpics && ./gpics
