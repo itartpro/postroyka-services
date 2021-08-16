@@ -9,9 +9,9 @@
 
 #### For build
 #FROM golang:alpine
-#WORKDIR /app/goservices/shared
+#WORKDIR /appservices/goservices/shared
 #COPY shared .
-#WORKDIR /app/goservices/gpics
+#WORKDIR /appservices/goservices/gpics
 #COPY gpics .
 #RUN go mod download
 #CMD go build -ldflags="-s -w" -o gpics && ./gpics
