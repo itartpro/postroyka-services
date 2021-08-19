@@ -1,6 +1,6 @@
 module go.mods/dbops
 
-go 1.16
+go 1.17
 
 require (
 	github.com/georgysavva/scany v0.2.8

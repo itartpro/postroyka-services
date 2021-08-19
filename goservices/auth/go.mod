@@ -1,6 +1,6 @@
 module main
 
-go 1.16
+go 1.17
 
 require (
 	go.mods/dbops v0.0.0
