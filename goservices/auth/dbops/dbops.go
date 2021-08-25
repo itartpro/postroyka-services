@@ -3,7 +3,6 @@ package dbops
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"time"
 
@@ -35,14 +34,21 @@ type User struct {
 }
 
 type Country struct {
-	Id int16 `json:"id"`
+	Id int16    `json:"id"`
 	Name string `json:"name"`
 }
 
 type Region struct {
-	Id 		  int32 `json:"id"`
+	Id 		  int32  `json:"id"`
 	Name 	  string `json:"name"`
-	CountryId int16 `json:"country_id"`
+	CountryId int16  `json:"country_id"`
+}
+
+type Town struct {
+	Id 		  int32  `json:"id"`
+	Name 	  string `json:"name"`
+	CountryId int16  `json:"country_id"`
+	RegionId  int16  `json:"region_id"`
 }
 
 func TryLogin(login string, pwd string) (User, error) {
@@ -131,12 +137,24 @@ func ReadRegions(id int16) ([]Region, error) {
 	if err != nil { return rs, err }
 	defer conn.Close()
 
-	log.Println(id)
-
 	err = pgxscan.Select(ctx, conn, &rs, `SELECT * FROM regions WHERE country_id = $1`, id)
 	if err != nil { return rs, err }
 
 	return rs, nil
+}
+
+func ReadTowns(id int16) ([]Town, error) {
+	var ts []Town
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil { return ts, err }
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &ts, `SELECT * FROM towns WHERE region_id = $1`, id)
+	if err != nil { return ts, err }
+
+	return ts, nil
 }
 
 func NewCountry(c Country) (Country, error)  {

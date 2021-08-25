@@ -99,14 +99,25 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		err := json.Unmarshal([]byte(instructions), &r)
 		if err != nil {return &res, err}
 
-
 		regions, err := dbops.ReadRegions(r.CountryId)
 		if err != nil {return &res, err}
 
 		jm, err := json.Marshal(regions)
 		if err != nil {return &res, err}
 
-		log.Println(regions)
+		res.Result = result("true",string(jm))
+	}
+
+	if op == "read-towns" {
+		var t dbops.Town
+		err := json.Unmarshal([]byte(instructions), &t)
+		if err != nil {return &res, err}
+
+		towns, err := dbops.ReadTowns(t.RegionId)
+		if err != nil {return &res, err}
+
+		jm, err := json.Marshal(towns)
+		if err != nil {return &res, err}
 
 		res.Result = result("true",string(jm))
 	}
