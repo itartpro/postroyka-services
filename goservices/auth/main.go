@@ -17,20 +17,20 @@ import (
 type server struct{}
 
 type Instructions struct {
-	Login     string `json:"login"`
-	Password  string `json:"password"`
+	Login    string `json:"login"`
+	Password string `json:"password"`
 }
 
 var service = "auth"
 
 func result(status string, data string) string {
-	return `{"name":"` + service + `","status":`+ status +`,"data":` + data + `}`
+	return `{"name":"` + service + `","status":` + status + `,"data":` + data + `}`
 }
 
 func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.DataResponse, error) {
 
 	var res grpcc.DataResponse
-	res.Result = result("false",`"noop or error"`)
+	res.Result = result("false", `"noop or error"`)
 
 	instructions := req.GetData().GetInstructions()
 	op := req.GetData().GetAction()
@@ -38,108 +38,152 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	if op == "register" {
 		var user dbops.User
 		err := json.Unmarshal([]byte(instructions), &user)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		user.Password = hashing.GeneratePassword(user.Password)
 		user, err = dbops.TryRegister(user)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		user.Password = ""
 		jm, err := json.Marshal(user)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "login" {
 		var in Instructions
 		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		login, pwd, err := hashing.B64DecodeTryUser(in.Login, in.Password)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		user, err := dbops.TryLogin(login, pwd)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		user.Password = ""
 
 		jm, err := json.Marshal(user)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "get-profile" {
 		var u dbops.User
 		err := json.Unmarshal([]byte(instructions), &u)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		user, err := dbops.GetProfile(u)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		user.Password = ""
 
 		jm, err := json.Marshal(user)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "read-countries" {
 		countries, err := dbops.ReadCountries()
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		jm, err := json.Marshal(countries)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "read-regions" {
 		var r dbops.Region
 		err := json.Unmarshal([]byte(instructions), &r)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		regions, err := dbops.ReadRegions(r.CountryId)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		jm, err := json.Marshal(regions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "read-towns" {
 		var t dbops.Town
 		err := json.Unmarshal([]byte(instructions), &t)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		towns, err := dbops.ReadTowns(t.RegionId)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		jm, err := json.Marshal(towns)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "new-country" {
 		var country dbops.Country
 		err := json.Unmarshal([]byte(instructions), &country)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		country, err = dbops.NewCountry(country)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		jm, err := json.Marshal(country)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jm))
+		res.Result = result("true", string(jm))
 	}
 
 	if op == "hash" {
 		var in Instructions
 		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		res.Result = hashing.GeneratePassword(in.Password)
 	}
@@ -147,7 +191,9 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	if op == "validate" {
 		var in Instructions
 		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		res.Result = "true"
 		if err := hashing.ValidatePassword([]byte(in.Login), []byte(in.Password)); err != nil {
@@ -158,23 +204,31 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	if op == "refresh" {
 		var in Instructions
 		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		res.Result = "false"
 		//in.Login user string id, in.Password cookie jti hash
 		user, err := dbops.TryRefresh(in.Login, in.Password)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		jmuser, err := json.Marshal(user)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
-		res.Result = result("true",string(jmuser))
+		res.Result = result("true", string(jmuser))
 	}
 
 	if op == "updateRef" {
 		var in Instructions
 		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 
 		//in.Login user string id, in.Password cookie jti hash
 		if err := dbops.UpdateRefresh(in.Login, in.Password); err != nil {

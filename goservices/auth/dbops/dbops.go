@@ -13,40 +13,40 @@ import (
 )
 
 type User struct {
-	Id		  int32     `json:"id"`
-	Email     string    `json:"email"`
-	Password  string    `json:"password"`
-	FullName  string     `json:"full_name"`
-	Gender    string    `json:"gender"`
-	Birthdate time.Time `json:"birthdate"`
-	Created   time.Time	`json:"created"`
-	CountryId int16     `json:"country_id"`
-	RegionId  int16		`json:"region_id"`
-	TownId    int32     `json:"town_id"`
-	Marital   string	`json:"marital"`
-	Phone	  string	`json:"phone"`
-	Site 	  string	`json:"site"`
-	Level     int16		`json:"level"`
-	Refresh   []string	`json:"refresh"`
-	Avatar	  bool		`json:"avatar"`
-	Weight    int16 	`json:"weight"`
-	Height    int16		`json:"height"`
+	Id           int32     `json:"id"`
+	Login        string    `json:"login"`
+	Password     string    `json:"password"`
+	Level        int16     `json:"level"`
+	Refresh      []string  `json:"refresh"`
+	Created      time.Time `json:"created"`
+	Avatar       bool      `json:"avatar"`
+	Email        string    `json:"email"`
+	Phone        string    `json:"phone"`
+	Rating       int16     `json:"rating"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	PaternalName string    `json:"paternal_name"`
+	LastOnline   time.Time `json:"last_online"`
+	About        string    `json:"about"`
+	Balance      int32     `json:"balance"`
+	TownId       int32     `json:"town_id"`
+	Legal        int16     `json:"legal"`
 }
 
 type Country struct {
-	Id int16    `json:"id"`
+	Id   int16  `json:"id"`
 	Name string `json:"name"`
 }
 
 type Region struct {
-	Id 		  int32  `json:"id"`
-	Name 	  string `json:"name"`
+	Id        int32  `json:"id"`
+	Name      string `json:"name"`
 	CountryId int16  `json:"country_id"`
 }
 
 type Town struct {
-	Id 		  int32  `json:"id"`
-	Name 	  string `json:"name"`
+	Id        int32  `json:"id"`
+	Name      string `json:"name"`
 	CountryId int16  `json:"country_id"`
 	RegionId  int16  `json:"region_id"`
 }
@@ -62,7 +62,7 @@ func TryLogin(login string, pwd string) (User, error) {
 	}
 	defer conn.Close()
 
-	if err := pgxscan.Get(ctx, conn, &user, `SELECT * FROM logins WHERE email=$1 OR phone=$1`, login); err != nil {
+	if err := pgxscan.Get(ctx, conn, &user, `SELECT * FROM logins WHERE login=$1 OR email=$1 OR phone=$1`, login); err != nil {
 		return user, err
 	}
 
@@ -76,35 +76,43 @@ func TryLogin(login string, pwd string) (User, error) {
 func GetProfile(u User) (User, error) {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil { return u, err }
+	if err != nil {
+		return u, err
+	}
 
 	err = pgxscan.Get(ctx, conn, &u, `SELECT * FROM logins WHERE id = $1`, u.Id)
-	if err != nil { return u, err }
+	if err != nil {
+		return u, err
+	}
 
 	return u, nil
 }
 
-func TryRegister(u User) (User, error)  {
+func TryRegister(u User) (User, error) {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
 
 	//check for users with matching email OR phone
-	var login string
 	var dup User
 	if u.Email != "" {
-		login += u.Email
-	} else {
-		login += u.Phone
-	}
-	_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE email=$1 OR phone=$1`, login)
-	if dup.Id > 0 {
-		err = errors.New("duplicate user")
-		return u, err
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE email=$1`, u.Email)
+		if dup.Id > 0 {
+			err = errors.New("duplicate user")
+			return u, err
+		}
 	}
 
-	row := conn.QueryRow(ctx, "INSERT INTO logins (email, phone, password, full_name, gender, birthdate, created, country_id)"+
-		"VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-		u.Email, u.Phone, u.Password, u.FullName, u.Gender, u.Birthdate, u.Created, u.CountryId)
+	if u.Phone != "" {
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE phone=$1`, u.Phone)
+		if dup.Id > 0 {
+			err = errors.New("duplicate user")
+			return u, err
+		}
+	}
+
+	row := conn.QueryRow(ctx, "INSERT INTO logins (password, created, email, phone, first_name, last_name, paternal_name, last_online, town_id, legal)"+
+		"VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id",
+		u.Password, u.Created, u.Email, u.Phone, u.FirstName, u.LastName, u.PaternalName, u.LastOnline, u.TownId, u.Legal)
 
 	var id int32
 	if err = row.Scan(&id); err != nil {
@@ -120,11 +128,15 @@ func ReadCountries() ([]Country, error) {
 
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil { return cs, err }
+	if err != nil {
+		return cs, err
+	}
 	defer conn.Close()
 
 	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM countries`)
-	if err != nil { return cs, err }
+	if err != nil {
+		return cs, err
+	}
 
 	return cs, nil
 }
@@ -134,11 +146,15 @@ func ReadRegions(id int16) ([]Region, error) {
 
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil { return rs, err }
+	if err != nil {
+		return rs, err
+	}
 	defer conn.Close()
 
 	err = pgxscan.Select(ctx, conn, &rs, `SELECT * FROM regions WHERE country_id = $1`, id)
-	if err != nil { return rs, err }
+	if err != nil {
+		return rs, err
+	}
 
 	return rs, nil
 }
@@ -148,19 +164,25 @@ func ReadTowns(id int16) ([]Town, error) {
 
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil { return ts, err }
+	if err != nil {
+		return ts, err
+	}
 	defer conn.Close()
 
 	err = pgxscan.Select(ctx, conn, &ts, `SELECT * FROM towns WHERE region_id = $1`, id)
-	if err != nil { return ts, err }
+	if err != nil {
+		return ts, err
+	}
 
 	return ts, nil
 }
 
-func NewCountry(c Country) (Country, error)  {
+func NewCountry(c Country) (Country, error) {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil { return c, err }
+	if err != nil {
+		return c, err
+	}
 	defer conn.Close()
 
 	row := conn.QueryRow(ctx, "INSERT INTO countries (name) VALUES ($1) RETURNING id", c.Name)
