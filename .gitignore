@@ -21,3 +21,6 @@ gen
 /goservices/gpics/*
 !/goservices/gpics/Dockerfile
 !/goservices/gpics/gpics
+
+# vars
+allvars.env
