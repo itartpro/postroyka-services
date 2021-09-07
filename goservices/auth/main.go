@@ -55,6 +55,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "login" {
@@ -81,6 +82,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "get-profile" {
@@ -102,6 +104,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "read-countries" {
@@ -116,6 +119,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "read-regions" {
@@ -136,6 +140,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "read-towns" {
@@ -156,6 +161,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "new-country" {
@@ -176,6 +182,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
+		return &res, nil
 	}
 
 	if op == "hash" {
@@ -186,6 +193,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = hashing.GeneratePassword(in.Password)
+		return &res, nil
 	}
 
 	if op == "validate" {
@@ -196,9 +204,12 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = "true"
-		if err := hashing.ValidatePassword([]byte(in.Login), []byte(in.Password)); err != nil {
+		err = hashing.ValidatePassword([]byte(in.Login), []byte(in.Password))
+		if err != nil {
 			return &res, err
 		}
+
+		return &res, nil
 	}
 
 	if op == "refresh" {
@@ -221,6 +232,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jmuser))
+		return &res, nil
 	}
 
 	if op == "updateRef" {
@@ -231,9 +243,41 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		//in.Login user string id, in.Password cookie jti hash
-		if err := dbops.UpdateRefresh(in.Login, in.Password); err != nil {
+		err = dbops.UpdateRefresh(in.Login, in.Password)
+		if err != nil {
 			return &res, err
 		}
+
+		res.Result = result("true", "updateRef")
+		return &res, nil
+	}
+
+	//when a master updates their skills choices
+	if op == "update_service_choices" {
+		ids := struct {
+			LoginId    int32   `json:"login_id"`
+			ServiceIds []int32 `json:"service_ids"`
+		}{}
+		err := json.Unmarshal([]byte(instructions), &ids)
+		if err != nil {
+			return &res, err
+		}
+
+		var choices []dbops.ServiceChoice
+		for _, v := range ids.ServiceIds {
+			choices = append(choices, dbops.ServiceChoice{
+				LoginId:   ids.LoginId,
+				ServiceId: v,
+			})
+		}
+
+		err = dbops.UpdateServiceChoices(choices)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", "update_service_choices")
+		return &res, nil
 	}
 
 	return &res, nil

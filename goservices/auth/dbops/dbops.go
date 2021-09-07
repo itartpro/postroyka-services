@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"go.mods/hashing"
@@ -49,6 +51,12 @@ type Town struct {
 	Name      string `json:"name"`
 	CountryId int16  `json:"country_id"`
 	RegionId  int16  `json:"region_id"`
+}
+
+type ServiceChoice struct {
+	Id		  int32 `json:"id"`
+	LoginId   int32 `json:"login_id"`
+	ServiceId int32 `json:"service_id"`
 }
 
 func TryLogin(login string, pwd string) (User, error) {
@@ -261,4 +269,36 @@ func TryRefresh(id string, hash string) (User, error) {
 	}
 	err = errors.New("refresh token not found in database")
 	return user, err
+}
+
+func UpdateServiceChoices(choices []ServiceChoice) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {return err}
+	defer conn.Close()
+
+	//TODO update old ones, insert surplus new ones or delete excess old ones
+	//var oldChoices []ServiceChoice
+	//err = pgxscan.Select(ctx, conn, &oldChoices, `SELECT * FROM choices WHERE login_id = $1`, choices[0].LoginId)
+	//if err != nil {return err}
+
+	//INSERT MULTIPLE ROWS
+	var inputRows [][]interface{}
+	for _, v := range choices {
+		inputRows = append(inputRows, []interface{}{
+			v.LoginId,
+			v.ServiceId,
+		})
+	}
+	copyCount, err := conn.CopyFrom(ctx, pgx.Identifier{"choices"}, []string{"login_id", "service_id"}, pgx.CopyFromRows(inputRows))
+	if err != nil {
+		err = errors.New("Unexpected error for CopyFrom: "+err.Error())
+		return err
+	}
+	if int(copyCount) != len(inputRows) {
+		err = errors.New("Expected CopyFrom to return "+strconv.Itoa(len(inputRows))+" copied rows, but got  "+strconv.Itoa(int(copyCount)))
+		return err
+	}
+
+	return nil
 }
