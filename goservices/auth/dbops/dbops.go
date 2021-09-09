@@ -87,6 +87,7 @@ func GetProfile(u User) (User, error) {
 	if err != nil {
 		return u, err
 	}
+	defer conn.Close()
 
 	err = pgxscan.Get(ctx, conn, &u, `SELECT * FROM logins WHERE id = $1`, u.Id)
 	if err != nil {
@@ -99,6 +100,10 @@ func GetProfile(u User) (User, error) {
 func TryRegister(u User) (User, error) {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return u, err
+	}
+	defer conn.Close()
 
 	//check for users with matching email OR phone
 	var dup User
@@ -222,6 +227,7 @@ func UpdateRefresh(id string, hash string) error {
 	if err := pgxscan.ScanOne(&user, rows); err != nil {
 		return err
 	}
+	rows.Close()
 
 	s := user.Refresh
 	//limit to 5 refreshes/devices, if its more than 4, remove first one

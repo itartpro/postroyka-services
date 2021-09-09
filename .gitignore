@@ -13,6 +13,8 @@ gen
 !/uploads/temp
 !/uploads/index.html
 
+allvars.env
+
 # services
 /goservices/gowebbackend/*
 #!/goservices/gowebbackend/Dockerfile
@@ -21,4 +23,3 @@ gen
 /goservices/gpics/*
 #!/goservices/gpics/Dockerfile
 #!/goservices/gpics/gpics
-allvars.env
