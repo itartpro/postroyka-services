@@ -16,5 +16,5 @@ gen
 allvars.env
 
 # secret services
-/goservices/gowebbackend/*
-/goservices/gpics/*
+/goservices/gowebbackend
+/goservices/gpics
