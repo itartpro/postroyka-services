@@ -15,11 +15,6 @@ gen
 
 allvars.env
 
-# services
+# secret services
 /goservices/gowebbackend/*
-#!/goservices/gowebbackend/Dockerfile
-#!/goservices/gowebbackend/gowebbackend
-
 /goservices/gpics/*
-#!/goservices/gpics/Dockerfile
-#!/goservices/gpics/gpics

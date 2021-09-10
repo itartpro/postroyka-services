@@ -252,6 +252,27 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "get-profile-comments" {
+		var u dbops.User
+		err := json.Unmarshal([]byte(instructions), &u)
+		if err != nil {
+			return &res, err
+		}
+
+		comments, err := dbops.GetProfileComments(u.Id)
+		if err != nil {
+			return &res, err
+		}
+
+		jm, err := json.Marshal(comments)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", string(jm))
+		return &res, nil
+	}
+
 	//when a master updates their skills choices
 	if op == "update_service_choices" {
 		ids := struct {

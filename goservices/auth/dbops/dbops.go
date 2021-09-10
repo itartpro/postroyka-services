@@ -54,9 +54,23 @@ type Town struct {
 }
 
 type ServiceChoice struct {
-	Id		  int32 `json:"id"`
+	Id        int32 `json:"id"`
 	LoginId   int32 `json:"login_id"`
 	ServiceId int32 `json:"service_id"`
+}
+
+type Comment struct {
+	Id          int32  `json:"id"`
+	MasterId    int32  `json:"master_id"`
+	ClientId    int32  `json:"client_id"`
+	OrderId     int32  `json:"order_id"`
+	ClientName  string `json:"client_name"`
+	Politeness  int16  `json:"politeness"`
+	Punctuality int16  `json:"punctuality"`
+	Speed       int16  `json:"speed"`
+	Balance     int16  `json:"balance"`
+	Overall     int16  `json:"overall"`
+	Text        string `json:"text"`
 }
 
 func TryLogin(login string, pwd string) (User, error) {
@@ -280,7 +294,9 @@ func TryRefresh(id string, hash string) (User, error) {
 func UpdateServiceChoices(choices []ServiceChoice) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
 	defer conn.Close()
 
 	//TODO update old ones, insert surplus new ones or delete excess old ones
@@ -298,13 +314,31 @@ func UpdateServiceChoices(choices []ServiceChoice) error {
 	}
 	copyCount, err := conn.CopyFrom(ctx, pgx.Identifier{"choices"}, []string{"login_id", "service_id"}, pgx.CopyFromRows(inputRows))
 	if err != nil {
-		err = errors.New("Unexpected error for CopyFrom: "+err.Error())
+		err = errors.New("Unexpected error for CopyFrom: " + err.Error())
 		return err
 	}
 	if int(copyCount) != len(inputRows) {
-		err = errors.New("Expected CopyFrom to return "+strconv.Itoa(len(inputRows))+" copied rows, but got  "+strconv.Itoa(int(copyCount)))
+		err = errors.New("Expected CopyFrom to return " + strconv.Itoa(len(inputRows)) + " copied rows, but got  " + strconv.Itoa(int(copyCount)))
 		return err
 	}
 
 	return nil
+}
+
+func GetProfileComments(id int32) ([]Comment, error) {
+	var cs []Comment
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return cs, err
+	}
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM comments WHERE master_id = $1`, id)
+	if err != nil {
+		return cs, err
+	}
+
+	return cs, nil
 }
