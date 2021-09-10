@@ -33,6 +33,7 @@ type User struct {
 	Balance      int32     `json:"balance"`
 	TownId       int32     `json:"town_id"`
 	Legal        int16     `json:"legal"`
+	Company      int16     `json:"company"`
 }
 
 type Country struct {
