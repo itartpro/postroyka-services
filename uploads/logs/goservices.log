@@ -1,1 +1,4 @@
 2021/09/09 16:48:31 crypto/rsa: verification error
+2021/09/11 13:58:17 crypto/rsa: verification error
+2021/09/11 13:59:58 ERROR: column "home" does not exist (SQLSTATE 42703)
+2021/09/11 15:05:36 ERROR: syntax error at or near "=" (SQLSTATE 42601)

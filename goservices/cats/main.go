@@ -47,6 +47,12 @@ type catSummary struct {
 	Extra       string    `json:"extra"`
 }
 
+type cell struct {
+	Id     int32  `json:"id"`
+	Column string `json:"column"`
+	Value  string `json:"value"`
+}
+
 var service = "cats"
 
 func result(status string, data string) string {
@@ -179,6 +185,27 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		ct, err := conn.Exec(ctx, `UPDATE cats SET parent_id = $1, name = $2, slug = $3, title = $4, description = $5, keywords = $6, author = $7, h1 = $8, text = $9, image = $10, sort_order = $11, created_at = $12, extra = $13 WHERE id = $14`,
 			cat.ParentId, cat.Name, cat.Slug, cat.Title, cat.Description, cat.Keywords, cat.Author, cat.H1, cat.Text, cat.Image, cat.SortOrder, cat.CreatedAt, cat.Extra, cat.Id)
 		if err != nil {
+			return &res, err
+		}
+
+		if ct.RowsAffected() == 0 {
+			res.Result = result("false", `"no rows found"`)
+			return &res, nil
+		}
+
+		res.Result = result("true", `"updated successfully"`)
+		return &res, nil
+	}
+
+	if op == "update-cell" {
+		var c cell
+		if err := json.Unmarshal([]byte(instructions), &c); err != nil {
+			return &res, err
+		}
+
+		ct, err := conn.Exec(ctx, `Update cats SET `+c.Column+` = $1 WHERE id = $2`, c.Value, c.Id)
+		if err != nil {
+			log.Println(err)
 			return &res, err
 		}
 

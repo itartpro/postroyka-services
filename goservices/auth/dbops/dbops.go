@@ -58,6 +58,7 @@ type ServiceChoice struct {
 	Id        int32 `json:"id"`
 	LoginId   int32 `json:"login_id"`
 	ServiceId int32 `json:"service_id"`
+	Price	  int32 `json:"price"`
 }
 
 type Comment struct {
