@@ -163,7 +163,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d/
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nginx.rule=Host(`static.client.local`)"
+      - "traefik.http.routers.nginx.rule=Host(`static.localhost`)"
       - "traefik.http.routers.nginx.entrypoints=web"
       - "traefik.http.middlewares.nginxlimit.ratelimit.average=20"
       - "traefik.http.middlewares.nginxlimit.ratelimit.burst=60"

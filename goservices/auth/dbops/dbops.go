@@ -2,6 +2,7 @@ package dbops
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strconv"
@@ -16,22 +17,24 @@ import (
 
 type User struct {
 	Id           int32     `json:"id"`
-	Login        string    `json:"login"`
 	Password     string    `json:"password"`
-	Level        int16     `json:"level"`
 	Refresh      []string  `json:"refresh"`
 	Created      time.Time `json:"created"`
+	LastOnline   time.Time `json:"last_online"`
+	Rating       int16     `json:"rating"`
+	//cant really change above stuff (except password)
+	Login        string    `json:"login"`
+	Level        int16     `json:"level"`
 	Avatar       bool      `json:"avatar"`
 	Email        string    `json:"email"`
 	Phone        string    `json:"phone"`
-	Rating       int16     `json:"rating"`
 	FirstName    string    `json:"first_name"`
 	LastName     string    `json:"last_name"`
 	PaternalName string    `json:"paternal_name"`
-	LastOnline   time.Time `json:"last_online"`
 	About        string    `json:"about"`
 	Balance      int32     `json:"balance"`
 	TownId       int32     `json:"town_id"`
+	RegionId	 int16	   `json:"region_id"`
 	Legal        int16     `json:"legal"`
 	Company      int16     `json:"company"`
 }
@@ -73,6 +76,12 @@ type Comment struct {
 	Balance     int16  `json:"balance"`
 	Overall     int16  `json:"overall"`
 	Text        string `json:"text"`
+}
+
+type cell struct {
+	Id     int32  `json:"id"`
+	Column string `json:"column"`
+	Value  string `json:"value"`
 }
 
 func TryLogin(login string, pwd string) (User, error) {
@@ -124,24 +133,24 @@ func TryRegister(u User) (User, error) {
 	//check for users with matching email OR phone
 	var dup User
 	if u.Email != "" {
-		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE email=$1`, u.Email)
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE email = $1`, u.Email)
 		if dup.Id > 0 {
-			err = errors.New("duplicate user")
+			err = errors.New(u.Email + " is taken")
 			return u, err
 		}
 	}
 
 	if u.Phone != "" {
-		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE phone=$1`, u.Phone)
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE phone = $1`, u.Phone)
 		if dup.Id > 0 {
-			err = errors.New("duplicate user")
+			err = errors.New(u.Phone + " is taken")
 			return u, err
 		}
 	}
 
-	row := conn.QueryRow(ctx, "INSERT INTO logins (password, created, email, phone, first_name, last_name, paternal_name, last_online, town_id, legal, level)"+
-		"VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
-		u.Password, u.Created, u.Email, u.Phone, u.FirstName, u.LastName, u.PaternalName, u.LastOnline, u.TownId, u.Legal)
+	row := conn.QueryRow(ctx, "INSERT INTO logins (password, created, email, phone, first_name, last_name, paternal_name, last_online, town_id, region_id, legal, level)"+
+		"VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id",
+		u.Password, u.Created, u.Email, u.Phone, u.FirstName, u.LastName, u.PaternalName, u.LastOnline, u.TownId, u.RegionId, u.Legal, u.Level)
 
 	var id int32
 	if err = row.Scan(&id); err != nil {
@@ -150,6 +159,46 @@ func TryRegister(u User) (User, error) {
 	u.Id = id
 
 	return u, nil
+}
+
+func UpdateLogin(u User) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	//check for users with matching email OR phone
+	var dup User
+	if u.Email != "" {
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE email = $1 AND id != $2`, u.Email, u.Id)
+		if dup.Id > 0 {
+			err = errors.New(u.Email + " is taken")
+			return err
+		}
+	}
+
+	if u.Phone != "" {
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE phone = $1 AND id != $2`, u.Phone, u.Id)
+		if dup.Id > 0 {
+			err = errors.New(u.Phone + " is taken")
+			return err
+		}
+	}
+
+	ct, err := conn.Exec(ctx, `UPDATE logins SET login = $1, level = $2, avatar = $3, email = $4, phone = $5, first_name = $6, last_name = $7, paternal_name = $8, about = $9, balance = $10, town_id = $11, region_id = $12, legal = $13, company = $14 WHERE id = $15`,
+		u.Login, u.Level, u.Avatar, u.Email, u.Phone, u.FirstName, u.LastName, u.PaternalName, u.About, u.Balance, u.TownId, u.RegionId, u.Legal, u.Company, u.Id)
+	if err != nil {
+		return err
+	}
+
+	if ct.RowsAffected() == 0 {
+		err = errors.New(`"no rows updated"`)
+		return err
+	}
+
+	return nil
 }
 
 func ReadCountries() ([]Country, error) {
@@ -343,4 +392,26 @@ func GetProfileComments(id int32) ([]Comment, error) {
 	}
 
 	return cs, nil
+}
+
+func UpdateCell(instructions string) error {
+	var c cell
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {return err}
+	defer conn.Close()
+
+	err = json.Unmarshal([]byte(instructions), &c)
+	if err != nil {return err}
+
+	ct, err := conn.Exec(ctx, `Update logins SET `+c.Column+` = $1 WHERE id = $2`, c.Value, c.Id)
+	if err != nil {return err}
+
+	if ct.RowsAffected() == 0 {
+		err = errors.New("no rows found")
+		return err
+	}
+
+	return nil
 }

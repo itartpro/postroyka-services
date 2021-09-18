@@ -14,8 +14,6 @@ import (
 	"go.mods/hashing"
 )
 
-type server struct{}
-
 type Instructions struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
@@ -27,6 +25,9 @@ func result(status string, data string) string {
 	return `{"name":"` + service + `","status":` + status + `,"data":` + data + `}`
 }
 
+type server struct{}
+
+//implement PassData interface from grpcc
 func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.DataResponse, error) {
 
 	var res grpcc.DataResponse
@@ -297,7 +298,30 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 			return &res, err
 		}
 
-		res.Result = result("true", "update_service_choices")
+		res.Result = result("true", `"update_service_choices"`)
+		return &res, nil
+	}
+
+	if op == "update-login" {
+		var user dbops.User
+		err := json.Unmarshal([]byte(instructions), &user)
+		if err != nil {
+			return &res, err
+		}
+
+		err = dbops.UpdateLogin(user)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", `"updated successfully"`)
+		return &res, nil
+	}
+
+	if op == "update-cell" {
+		err := dbops.UpdateCell(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", instructions)
 		return &res, nil
 	}
 
@@ -317,17 +341,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to setup TLS:%v", err)
 	}
-	s := grpc.NewServer(grpc.Creds(ok))
+
 	lis, err := net.Listen("tcp", ":50003")
 	if err != nil {
-		log.Fatal("Failed to listen ", err)
+		log.Fatal(service + "service failed to listen ", err)
 	}
 
-	println("Hi, I'm a " + service + " microservice listening...")
+	println("Hi, I'm an " + service + " grpc comm. service listening...")
 
+	s := grpc.NewServer(grpc.Creds(ok))
 	grpcc.RegisterCommunicationServiceServer(s, &server{})
 	err = s.Serve(lis)
 	if err != nil {
-		log.Fatal("Failed to serve:", err)
+		log.Fatal("Failed to serve grpc server " + service + ":", err)
 	}
 }

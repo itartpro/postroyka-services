@@ -17,8 +17,6 @@ import (
 	"go.mods/grpcc"
 )
 
-type server struct{}
-
 type cat struct {
 	Id          int32     `json:"id"`
 	ParentId    int32     `json:"parent_id"`
@@ -58,6 +56,8 @@ var service = "cats"
 func result(status string, data string) string {
 	return `{"name":"` + service + `","status":` + status + `,"data":` + data + `}`
 }
+
+type server struct{}
 
 func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.DataResponse, error) {
 
@@ -189,7 +189,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		if ct.RowsAffected() == 0 {
-			res.Result = result("false", `"no rows found"`)
+			res.Result = result("false", `"no rows updated"`)
 			return &res, nil
 		}
 
@@ -234,17 +234,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to setup TLS:%v", err)
 	}
-	s := grpc.NewServer(grpc.Creds(ok))
+
 	lis, err := net.Listen("tcp", ":50004")
 	if err != nil {
-		log.Fatal("Failed to listen ", err)
+		log.Fatal(service + "service failed to listen ", err)
 	}
 
-	println("Hi, I'm a " + service + " microservice listening...")
+	println("Hi, I'm a " + service + " grpc comm. service listening...")
 
+	s := grpc.NewServer(grpc.Creds(ok))
 	grpcc.RegisterCommunicationServiceServer(s, &server{})
 	err = s.Serve(lis)
 	if err != nil {
-		log.Fatal("Failed to serve:", err)
+		log.Fatal("Failed to serve grpc server " + service + ":", err)
 	}
 }
