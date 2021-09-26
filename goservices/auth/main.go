@@ -275,7 +275,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	//when a master updates their skills choices
-	if op == "update_service_choices" {
+	if op == "update-service-choices" {
 		ids := struct {
 			LoginId    int32   `json:"login_id"`
 			ServiceIds []int32 `json:"service_ids"`
@@ -285,9 +285,9 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 			return &res, err
 		}
 
-		var choices []dbops.ServiceChoice
+		var choices []dbops.Choice
 		for _, v := range ids.ServiceIds {
-			choices = append(choices, dbops.ServiceChoice{
+			choices = append(choices, dbops.Choice{
 				LoginId:   ids.LoginId,
 				ServiceId: v,
 			})
@@ -298,7 +298,44 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 			return &res, err
 		}
 
-		res.Result = result("true", `"update_service_choices"`)
+		res.Result = result("true", `"update-service-choices"`)
+		return &res, nil
+	}
+
+	if op == "update-service-prices" {
+		var choices []dbops.Choice
+		err := json.Unmarshal([]byte(instructions), &choices)
+		if err != nil {
+			return &res, err
+		}
+
+		err = dbops.UpdateServicePrices(choices)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", `"update-service-prices"`)
+		return &res, nil
+	}
+
+	if op == "masters-choices" {
+		var u dbops.User
+		err := json.Unmarshal([]byte(instructions), &u)
+		if err != nil {
+			return &res, err
+		}
+
+		choices, err := dbops.GetMastersChoices(u.Id)
+		if err != nil {
+			return &res, err
+		}
+
+		jm, err := json.Marshal(choices)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", string(jm))
 		return &res, nil
 	}
 

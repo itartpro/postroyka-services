@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
-	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"go.mods/hashing"
@@ -57,11 +55,12 @@ type Town struct {
 	RegionId  int16  `json:"region_id"`
 }
 
-type ServiceChoice struct {
+type Choice struct {
 	Id        int32 `json:"id"`
 	LoginId   int32 `json:"login_id"`
 	ServiceId int32 `json:"service_id"`
 	Price	  int32 `json:"price"`
+	Parent    bool  `json:"parent"`
 }
 
 type Comment struct {
@@ -342,7 +341,7 @@ func TryRefresh(id string, hash string) (User, error) {
 	return user, err
 }
 
-func UpdateServiceChoices(choices []ServiceChoice) error {
+func UpdateServiceChoices(news []Choice) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -350,27 +349,93 @@ func UpdateServiceChoices(choices []ServiceChoice) error {
 	}
 	defer conn.Close()
 
-	//TODO update old ones, insert surplus new ones or delete excess old ones
-	//var oldChoices []ServiceChoice
-	//err = pgxscan.Select(ctx, conn, &oldChoices, `SELECT * FROM choices WHERE login_id = $1`, choices[0].LoginId)
-	//if err != nil {return err}
-
-	//INSERT MULTIPLE ROWS
-	var inputRows [][]interface{}
-	for _, v := range choices {
-		inputRows = append(inputRows, []interface{}{
-			v.LoginId,
-			v.ServiceId,
-		})
-	}
-	copyCount, err := conn.CopyFrom(ctx, pgx.Identifier{"choices"}, []string{"login_id", "service_id"}, pgx.CopyFromRows(inputRows))
+	//First get all old choices in case something needs to be deleted
+	var old []Choice
+	err = pgxscan.Select(ctx, conn, &old, `SELECT * FROM choices WHERE login_id = $1 AND parent = true`, news[0].LoginId)
 	if err != nil {
-		err = errors.New("Unexpected error for CopyFrom: " + err.Error())
 		return err
 	}
-	if int(copyCount) != len(inputRows) {
-		err = errors.New("Expected CopyFrom to return " + strconv.Itoa(len(inputRows)) + " copied rows, but got  " + strconv.Itoa(int(copyCount)))
+
+	if len(news) >= len(old) {
+		for i := range news {
+			if i < len(old) {
+				_, err = conn.Exec(ctx, `UPDATE choices SET service_id = $1 WHERE id = $2`, news[i].ServiceId, old[i].Id)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = conn.Exec(ctx, `INSERT INTO choices (login_id, service_id, parent) VALUES ($1, $2, true)`, news[i].LoginId, news[i].ServiceId)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if len(old) > len(news) {
+		for i := range old {
+			if i < len(news) {
+				_, err = conn.Exec(ctx, `UPDATE choices SET service_id = $1 WHERE id = $2`, news[i].ServiceId, old[i].Id)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = conn.Exec(ctx, `DELETE FROM choices WHERE id = $1`, old[i].Id)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func UpdateServicePrices(news []Choice) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
 		return err
+	}
+	defer conn.Close()
+
+	//First get all old choices in case something needs to be deleted
+	var old []Choice
+	err = pgxscan.Select(ctx, conn, &old, `SELECT * FROM choices WHERE login_id = $1 AND parent = false`, news[0].LoginId)
+	if err != nil {cd
+		return err
+	}
+
+	if len(news) >= len(old) {
+		for i := range news {
+			if i < len(old) {
+				_, err = conn.Exec(ctx, `UPDATE choices SET service_id = $1, price = $2 WHERE id = $3`, news[i].ServiceId, news[i].Price, old[i].Id)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = conn.Exec(ctx, `INSERT INTO choices (login_id, service_id, price, parent) VALUES ($1, $2, $3, false)`, news[i].LoginId, news[i].ServiceId, news[i].Price)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if len(old) > len(news) {
+		for i := range old {
+			if i < len(news) {
+				_, err = conn.Exec(ctx, `UPDATE choices SET service_id = $1, price = $2 WHERE id = $3`, news[i].ServiceId, news[i].Price, old[i].Id)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = conn.Exec(ctx, `DELETE FROM choices WHERE id = $1`, old[i].Id)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	return nil
@@ -387,6 +452,24 @@ func GetProfileComments(id int32) ([]Comment, error) {
 	defer conn.Close()
 
 	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM comments WHERE master_id = $1`, id)
+	if err != nil {
+		return cs, err
+	}
+
+	return cs, nil
+}
+
+func GetMastersChoices(id int32) ([]Choice, error) {
+	var cs []Choice
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return cs, err
+	}
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM choices WHERE login_id = $1`, id)
 	if err != nil {
 		return cs, err
 	}
