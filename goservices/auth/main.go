@@ -36,6 +36,15 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	instructions := req.GetData().GetInstructions()
 	op := req.GetData().GetAction()
 
+	//whatever
+	if op == "update-cell" {
+		err := dbops.UpdateCell(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", instructions)
+		return &res, nil
+	}
+
+	//login stuff
 	if op == "register" {
 		var user dbops.User
 		err := json.Unmarshal([]byte(instructions), &user)
@@ -108,6 +117,90 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "hash" {
+		var in Instructions
+		err := json.Unmarshal([]byte(instructions), &in)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = hashing.GeneratePassword(in.Password)
+		return &res, nil
+	}
+
+	if op == "validate" {
+		var in Instructions
+		err := json.Unmarshal([]byte(instructions), &in)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = "true"
+		err = hashing.ValidatePassword([]byte(in.Login), []byte(in.Password))
+		if err != nil {
+			return &res, err
+		}
+
+		return &res, nil
+	}
+
+	if op == "refresh" {
+		var in Instructions
+		err := json.Unmarshal([]byte(instructions), &in)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = "false"
+		//in.Login user string id, in.Password cookie jti hash
+		user, err := dbops.TryRefresh(in.Login, in.Password)
+		if err != nil {
+			return &res, err
+		}
+
+		jmuser, err := json.Marshal(user)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", string(jmuser))
+		return &res, nil
+	}
+
+	if op == "updateRef" {
+		var in Instructions
+		err := json.Unmarshal([]byte(instructions), &in)
+		if err != nil {
+			return &res, err
+		}
+
+		//in.Login user string id, in.Password cookie jti hash
+		err = dbops.UpdateRefresh(in.Login, in.Password)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", "updateRef")
+		return &res, nil
+	}
+
+	if op == "update-login" {
+		var user dbops.User
+		err := json.Unmarshal([]byte(instructions), &user)
+		if err != nil {
+			return &res, err
+		}
+
+		err = dbops.UpdateLogin(user)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", `"updated successfully"`)
+		return &res, nil
+	}
+
+	//countries
 	if op == "read-countries" {
 		countries, err := dbops.ReadCountries()
 		if err != nil {
@@ -183,73 +276,6 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", string(jm))
-		return &res, nil
-	}
-
-	if op == "hash" {
-		var in Instructions
-		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = hashing.GeneratePassword(in.Password)
-		return &res, nil
-	}
-
-	if op == "validate" {
-		var in Instructions
-		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = "true"
-		err = hashing.ValidatePassword([]byte(in.Login), []byte(in.Password))
-		if err != nil {
-			return &res, err
-		}
-
-		return &res, nil
-	}
-
-	if op == "refresh" {
-		var in Instructions
-		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = "false"
-		//in.Login user string id, in.Password cookie jti hash
-		user, err := dbops.TryRefresh(in.Login, in.Password)
-		if err != nil {
-			return &res, err
-		}
-
-		jmuser, err := json.Marshal(user)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = result("true", string(jmuser))
-		return &res, nil
-	}
-
-	if op == "updateRef" {
-		var in Instructions
-		err := json.Unmarshal([]byte(instructions), &in)
-		if err != nil {
-			return &res, err
-		}
-
-		//in.Login user string id, in.Password cookie jti hash
-		err = dbops.UpdateRefresh(in.Login, in.Password)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = result("true", "updateRef")
 		return &res, nil
 	}
 
@@ -339,26 +365,25 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
-	if op == "update-login" {
-		var user dbops.User
-		err := json.Unmarshal([]byte(instructions), &user)
-		if err != nil {
-			return &res, err
-		}
+	//portfolio stuff
+	if op == "add-work" {
+		err := dbops.AddWork(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", `"added successfully"`)
+		return &res, nil
+	}
 
-		err = dbops.UpdateLogin(user)
-		if err != nil {
-			return &res, err
-		}
-
+	if op == "update-work" {
+		err := dbops.UpdateWork(instructions)
+		if err != nil {return &res, err}
 		res.Result = result("true", `"updated successfully"`)
 		return &res, nil
 	}
 
-	if op == "update-cell" {
-		err := dbops.UpdateCell(instructions)
+	if op == "get-portfolio" {
+		str, err := dbops.GetPortfolio(instructions)
 		if err != nil {return &res, err}
-		res.Result = result("true", instructions)
+		res.Result = result("true", str)
 		return &res, nil
 	}
 

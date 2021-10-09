@@ -176,6 +176,42 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		res.Result = result("true", string(b))
 	}
 
+	if op == "read-where-in" {
+		whereIn := struct {
+			Column    string   `json:"column"`
+			Values 	  []string `json:"values"`
+		}{}
+		err := json.Unmarshal([]byte(instructions), &whereIn)
+		if err != nil {
+			return &res, err
+		}
+
+		var str string
+		for _, v := range whereIn.Values {
+			str += v + `,`
+		}
+		str = str[:len(str)-1] // remove last ","
+
+		var cats []*catSummary
+		sqlStr := `SELECT `+summary+` FROM cats WHERE `+whereIn.Column+` IN (`+str+`)`
+		err = pgxscan.Select(ctx, conn, &cats, sqlStr)
+		if err != nil {
+			return &res, err
+		}
+
+		if len(cats) < 1 {
+			res.Result = result("false", `"no rows found"`)
+			return &res, nil
+		}
+
+		b, err := json.Marshal(cats)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", string(b))
+	}
+
 	if op == "update" {
 		var cat cat
 		if err := json.Unmarshal([]byte(instructions), &cat); err != nil {

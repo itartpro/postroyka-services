@@ -14,27 +14,27 @@ import (
 )
 
 type User struct {
-	Id           int32     `json:"id"`
-	Password     string    `json:"password"`
-	Refresh      []string  `json:"refresh"`
-	Created      time.Time `json:"created"`
-	LastOnline   time.Time `json:"last_online"`
-	Rating       int16     `json:"rating"`
+	Id         int32     `json:"id"`
+	Password   string    `json:"password"`
+	Refresh    []string  `json:"refresh"`
+	Created    time.Time `json:"created"`
+	LastOnline time.Time `json:"last_online"`
+	Rating     int16     `json:"rating"`
 	//cant really change above stuff (except password)
-	Login        string    `json:"login"`
-	Level        int16     `json:"level"`
-	Avatar       bool      `json:"avatar"`
-	Email        string    `json:"email"`
-	Phone        string    `json:"phone"`
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	PaternalName string    `json:"paternal_name"`
-	About        string    `json:"about"`
-	Balance      int32     `json:"balance"`
-	TownId       int32     `json:"town_id"`
-	RegionId	 int16	   `json:"region_id"`
-	Legal        int16     `json:"legal"`
-	Company      int16     `json:"company"`
+	Login        string `json:"login"`
+	Level        int16  `json:"level"`
+	Avatar       bool   `json:"avatar"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	PaternalName string `json:"paternal_name"`
+	About        string `json:"about"`
+	Balance      int32  `json:"balance"`
+	TownId       int32  `json:"town_id"`
+	RegionId     int16  `json:"region_id"`
+	Legal        int16  `json:"legal"`
+	Company      int16  `json:"company"`
 }
 
 type Country struct {
@@ -59,7 +59,7 @@ type Choice struct {
 	Id        int32 `json:"id"`
 	LoginId   int32 `json:"login_id"`
 	ServiceId int32 `json:"service_id"`
-	Price	  int32 `json:"price"`
+	Price     int32 `json:"price"`
 	Parent    bool  `json:"parent"`
 }
 
@@ -81,6 +81,18 @@ type cell struct {
 	Id     int32  `json:"id"`
 	Column string `json:"column"`
 	Value  string `json:"value"`
+	Table  string `json:"table"`
+}
+
+type PortfolioWork struct {
+	Id          int32  `json:"id"`
+	LoginId     int32  `json:"login_id"`
+	ServiceId   int32  `json:"service_id"`
+	OrderId     int32  `json:"order_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Hours       int32  `json:"hours"`
+	Price       int32  `json:"price"`
 }
 
 func TryLogin(login string, pwd string) (User, error) {
@@ -402,7 +414,7 @@ func UpdateServicePrices(news []Choice) error {
 	//First get all old choices in case something needs to be deleted
 	var old []Choice
 	err = pgxscan.Select(ctx, conn, &old, `SELECT * FROM choices WHERE login_id = $1 AND parent = false`, news[0].LoginId)
-	if err != nil {cd
+	if err != nil {
 		return err
 	}
 
@@ -480,16 +492,27 @@ func GetMastersChoices(id int32) ([]Choice, error) {
 func UpdateCell(instructions string) error {
 	var c cell
 
+	err := json.Unmarshal([]byte(instructions), &c)
+	if err != nil {
+		return err
+	}
+
+	if c.Table != "logins" {
+		err = errors.New("access denied")
+		return err
+	}
+
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
 	defer conn.Close()
 
-	err = json.Unmarshal([]byte(instructions), &c)
-	if err != nil {return err}
-
-	ct, err := conn.Exec(ctx, `Update logins SET `+c.Column+` = $1 WHERE id = $2`, c.Value, c.Id)
-	if err != nil {return err}
+	ct, err := conn.Exec(ctx, `Update `+c.Table+` SET `+c.Column+` = $1 WHERE id = $2`, c.Value, c.Id)
+	if err != nil {
+		return err
+	}
 
 	if ct.RowsAffected() == 0 {
 		err = errors.New("no rows found")
@@ -497,4 +520,87 @@ func UpdateCell(instructions string) error {
 	}
 
 	return nil
+}
+
+func AddWork(instructions string) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	var w PortfolioWork
+
+	err = json.Unmarshal([]byte(instructions), &w)
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Exec(ctx, `INSERT INTO portfolio (login_id, order_id, name, service_id, description, hours, price) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		w.LoginId, w.OrderId, w.Name, w.ServiceId, w.Description, w.Hours, w.Price)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UpdateWork(instructions string) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	var w PortfolioWork
+
+	err = json.Unmarshal([]byte(instructions), &w)
+	if err != nil {
+		return err
+	}
+
+	ct, err := conn.Exec(ctx,
+		`UPDATE portfolio SET order_id = $1, name = $2, service_id = $3, description = $4, hours = $5, price = $6 WHERE id = $7`,
+		w.OrderId, w.Name, w.ServiceId, w.Description, w.Hours, w.Price, w.Id)
+	if err != nil {
+		return err
+	}
+
+	if ct.RowsAffected() == 0 {
+		err = errors.New(`"no rows updated"`)
+		return err
+	}
+
+	return nil
+}
+
+func GetPortfolio(instructions string) (string, error) {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var ins PortfolioWork
+	err = json.Unmarshal([]byte(instructions), &ins)
+	if err != nil {
+		return "", err
+	}
+
+	var ws []PortfolioWork
+
+	err = pgxscan.Select(ctx, conn, &ws, `SELECT * FROM portfolio WHERE login_id = $1`, ins.LoginId)
+	if err != nil {
+		return "", err
+	}
+
+	jm, err := json.Marshal(ws)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
 }
