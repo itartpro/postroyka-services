@@ -91,8 +91,8 @@ type PortfolioWork struct {
 	OrderId     int32  `json:"order_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Hours       int32  `json:"hours"`
-	Price       int32  `json:"price"`
+	Volume      string `json:"volume"`
+	Price       string `json:"price"`
 }
 
 func TryLogin(login string, pwd string) (User, error) {
@@ -537,8 +537,8 @@ func AddWork(instructions string) error {
 		return err
 	}
 
-	_, err = conn.Exec(ctx, `INSERT INTO portfolio (login_id, order_id, name, service_id, description, hours, price) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		w.LoginId, w.OrderId, w.Name, w.ServiceId, w.Description, w.Hours, w.Price)
+	_, err = conn.Exec(ctx, `INSERT INTO portfolio (login_id, order_id, name, service_id, description, volume, price) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		w.LoginId, w.OrderId, w.Name, w.ServiceId, w.Description, w.Volume, w.Price)
 	if err != nil {
 		return err
 	}
@@ -562,8 +562,8 @@ func UpdateWork(instructions string) error {
 	}
 
 	ct, err := conn.Exec(ctx,
-		`UPDATE portfolio SET order_id = $1, name = $2, service_id = $3, description = $4, hours = $5, price = $6 WHERE id = $7`,
-		w.OrderId, w.Name, w.ServiceId, w.Description, w.Hours, w.Price, w.Id)
+		`UPDATE portfolio SET order_id = $1, name = $2, service_id = $3, description = $4, volume = $5, price = $6 WHERE id = $7`,
+		w.OrderId, w.Name, w.ServiceId, w.Description, w.Volume, w.Price, w.Id)
 	if err != nil {
 		return err
 	}
