@@ -1,0 +1,77 @@
+0 verbose cli [
+0 verbose cli   '/usr/local/bin/node',
+0 verbose cli   '/usr/local/bin/npm',
+0 verbose cli   'i',
+0 verbose cli   '--save',
+0 verbose cli   'react-step-range-slider'
+0 verbose cli ]
+1 info using npm@7.21.0
+2 info using node@v16.8.0
+3 timing npm:load:whichnode Completed in 1ms
+4 timing config:load:defaults Completed in 2ms
+5 timing config:load:file:/usr/local/lib/node_modules/npm/npmrc Completed in 1ms
+6 timing config:load:builtin Completed in 1ms
+7 timing config:load:cli Completed in 2ms
+8 timing config:load:env Completed in 1ms
+9 timing config:load:file:/webapp/.npmrc Completed in 1ms
+10 timing config:load:project Completed in 2ms
+11 timing config:load:file:/root/.npmrc Completed in 0ms
+12 timing config:load:user Completed in 0ms
+13 timing config:load:file:/usr/local/etc/npmrc Completed in 1ms
+14 timing config:load:global Completed in 1ms
+15 timing config:load:validate Completed in 0ms
+16 timing config:load:credentials Completed in 1ms
+17 timing config:load:setEnvs Completed in 1ms
+18 timing config:load Completed in 11ms
+19 timing npm:load:configload Completed in 11ms
+20 timing npm:load:setTitle Completed in 0ms
+21 timing npm:load:setupLog Completed in 0ms
+22 timing config:load:flatten Completed in 4ms
+23 timing npm:load:cleanupLog Completed in 2ms
+24 timing npm:load:configScope Completed in 0ms
+25 timing npm:load:projectScope Completed in 3ms
+26 timing npm:load Completed in 23ms
+27 timing arborist:ctor Completed in 1ms
+28 timing idealTree:init Completed in 333ms
+29 timing idealTree:userRequests Completed in 3ms
+30 silly idealTree buildDeps
+31 silly fetch manifest react-step-range-slider@*
+32 timing arborist:ctor Completed in 0ms
+33 http fetch GET 200 https://registry.npmjs.org/react-step-range-slider 267ms (cache hit)
+34 silly fetch manifest react@^17.0.2
+35 http fetch GET 200 https://registry.npmjs.org/react 9ms (cache hit)
+36 silly fetch manifest react@^15
+37 timing idealTree Completed in 659ms
+38 timing command:install Completed in 697ms
+39 verbose stack Error: unable to resolve dependency tree
+39 verbose stack     at Arborist.[failPeerConflict] (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/build-ideal-tree.js:1274:25)
+39 verbose stack     at Arborist.[loadPeerSet] (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/build-ideal-tree.js:1241:34)
+39 verbose stack     at async Arborist.[buildDepStep] (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/build-ideal-tree.js:877:11)
+39 verbose stack     at async Arborist.buildIdealTree (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/build-ideal-tree.js:206:7)
+39 verbose stack     at async Promise.all (index 1)
+39 verbose stack     at async Arborist.reify (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:147:5)
+39 verbose stack     at async Install.install (/usr/local/lib/node_modules/npm/lib/install.js:150:5)
+40 verbose cwd /webapp
+41 verbose Linux 4.19.128-microsoft-standard
+42 verbose argv "/usr/local/bin/node" "/usr/local/bin/npm" "i" "--save" "react-step-range-slider"
+43 verbose node v16.8.0
+44 verbose npm  v7.21.0
+45 error code ERESOLVE
+46 error ERESOLVE unable to resolve dependency tree
+47 error
+48 error While resolving: [1mpostroyka[22m@[1m0.1.0[22m
+48 error Found: [1mreact[22m@[1m17.0.2[22m[2m[22m
+48 error [2mnode_modules/react[22m
+48 error   [1mreact[22m@"[1m^17.0.2[22m" from the root project
+48 error
+48 error Could not resolve dependency:
+48 error [35mpeer[39m [1mreact[22m@"[1m^15[22m" from [1mreact-step-range-slider[22m@[1m1.4.1[22m[2m[22m
+48 error [2mnode_modules/react-step-range-slider[22m
+48 error   [1mreact-step-range-slider[22m@"[1m*[22m" from the root project
+48 error
+48 error Fix the upstream dependency conflict, or retry
+48 error this command with --force, or --legacy-peer-deps
+48 error to accept an incorrect (and potentially broken) dependency resolution.
+48 error
+48 error See /root/.npm/eresolve-report.txt for a full report.
+49 verbose exit 1

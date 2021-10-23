@@ -14,11 +14,6 @@ import (
 	"go.mods/hashing"
 )
 
-type Instructions struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-}
-
 var service = "auth"
 
 func result(status string, data string) string {
@@ -53,23 +48,17 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		user.Password = hashing.GeneratePassword(user.Password)
-		user, err = dbops.TryRegister(user)
+		userString, err := dbops.TryRegister(user)
 		if err != nil {
 			return &res, err
 		}
 
-		user.Password = ""
-		jm, err := json.Marshal(user)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = result("true", string(jm))
+		res.Result = result("true", userString)
 		return &res, nil
 	}
 
 	if op == "login" {
-		var in Instructions
+		var in dbops.User
 		err := json.Unmarshal([]byte(instructions), &in)
 		if err != nil {
 			return &res, err
@@ -118,7 +107,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	if op == "hash" {
-		var in Instructions
+		var in dbops.User
 		err := json.Unmarshal([]byte(instructions), &in)
 		if err != nil {
 			return &res, err
@@ -129,7 +118,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	if op == "validate" {
-		var in Instructions
+		var in dbops.User
 		err := json.Unmarshal([]byte(instructions), &in)
 		if err != nil {
 			return &res, err
@@ -145,7 +134,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	if op == "refresh" {
-		var in Instructions
+		var in dbops.User
 		err := json.Unmarshal([]byte(instructions), &in)
 		if err != nil {
 			return &res, err
@@ -168,7 +157,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	if op == "updateRef" {
-		var in Instructions
+		var in dbops.User
 		err := json.Unmarshal([]byte(instructions), &in)
 		if err != nil {
 			return &res, err
@@ -382,6 +371,14 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 	if op == "get-portfolio" {
 		str, err := dbops.GetPortfolio(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	//orders
+	if op == "add-order" {
+		str, err := dbops.AddOrder(instructions)
 		if err != nil {return &res, err}
 		res.Result = result("true", str)
 		return &res, nil

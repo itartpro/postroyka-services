@@ -95,6 +95,20 @@ type PortfolioWork struct {
 	Price       string `json:"price"`
 }
 
+type Order struct {
+	Id          int32  `json:"id"`
+	LoginId     int32  `json:"login_id"`
+	ServiceId   int32  `json:"service_id"`
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	RegionId  	int16  `json:"region_id"`
+	TownId		int32  `json:"town_id"`
+	Budget      int32  `json:"budget"`
+	Created  time.Time `json:"created"`
+}
+
+
 func TryLogin(login string, pwd string) (User, error) {
 
 	var user User
@@ -133,11 +147,11 @@ func GetProfile(u User) (User, error) {
 	return u, nil
 }
 
-func TryRegister(u User) (User, error) {
+func TryRegister(u User) (string, error) {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
-		return u, err
+		return "", err
 	}
 	defer conn.Close()
 
@@ -147,7 +161,7 @@ func TryRegister(u User) (User, error) {
 		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE email = $1`, u.Email)
 		if dup.Id > 0 {
 			err = errors.New(u.Email + " is taken")
-			return u, err
+			return "", err
 		}
 	}
 
@@ -155,7 +169,7 @@ func TryRegister(u User) (User, error) {
 		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM logins WHERE phone = $1`, u.Phone)
 		if dup.Id > 0 {
 			err = errors.New(u.Phone + " is taken")
-			return u, err
+			return "", err
 		}
 	}
 
@@ -165,11 +179,14 @@ func TryRegister(u User) (User, error) {
 
 	var id int32
 	if err = row.Scan(&id); err != nil {
-		return u, err
+		return "", err
 	}
 	u.Id = id
 
-	return u, nil
+	u.Password = ""
+	jm, err := json.Marshal(u)
+
+	return string(jm), nil
 }
 
 func UpdateLogin(u User) error {
@@ -353,6 +370,7 @@ func TryRefresh(id string, hash string) (User, error) {
 	return user, err
 }
 
+
 func UpdateServiceChoices(news []Choice) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
@@ -453,24 +471,6 @@ func UpdateServicePrices(news []Choice) error {
 	return nil
 }
 
-func GetProfileComments(id int32) ([]Comment, error) {
-	var cs []Comment
-
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return cs, err
-	}
-	defer conn.Close()
-
-	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM comments WHERE master_id = $1`, id)
-	if err != nil {
-		return cs, err
-	}
-
-	return cs, nil
-}
-
 func GetMastersChoices(id int32) ([]Choice, error) {
 	var cs []Choice
 
@@ -488,6 +488,7 @@ func GetMastersChoices(id int32) ([]Choice, error) {
 
 	return cs, nil
 }
+
 
 func UpdateCell(instructions string) error {
 	var c cell
@@ -521,6 +522,7 @@ func UpdateCell(instructions string) error {
 
 	return nil
 }
+
 
 func AddWork(instructions string) error {
 	ctx := context.Background()
@@ -601,6 +603,51 @@ func GetPortfolio(instructions string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	return string(jm), nil
+}
+
+func GetProfileComments(id int32) ([]Comment, error) {
+	var cs []Comment
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return cs, err
+	}
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM comments WHERE master_id = $1`, id)
+	if err != nil {
+		return cs, err
+	}
+
+	return cs, nil
+}
+
+
+func AddOrder(instructions string) (string, error) {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var o Order
+
+	err = json.Unmarshal([]byte(instructions), &o)
+	if err != nil {
+		return "", err
+	}
+
+	sql := `INSERT INTO orders (login_id, service_id, name, title, description, region_id, town_id, budget, created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+	row := conn.QueryRow(ctx, sql, o.LoginId, o.ServiceId, o.Name, o.Title, o.Description, o.RegionId, o.TownId, o.Budget, o.Created)
+	if err = row.Scan(&o.Id); err != nil {
+		return "", err
+	}
+
+	jm, err := json.Marshal(o)
 
 	return string(jm), nil
 }
