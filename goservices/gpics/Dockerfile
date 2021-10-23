@@ -20,10 +20,23 @@
 # RUN apk add upx
 # CMD go build -ldflags="-s -w" -o gpics && upx -9 -k gpics && ./gpics
 
-#### For production
+## For production
 FROM alpine
-WORKDIR /appservices/goservices/shared
+
+RUN apk add --no-cache tzdata
+ENV TZ Europe/Moscow
+RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN apk del tzdata
+
+WORKDIR /home/appuser/appservices/goservices/shared
 COPY shared .
-WORKDIR /appservices/goservices/gpics
+WORKDIR /home/appuser/appservices/goservices/gpics
 COPY gpics .
-CMD chmod +x ./gpics && ./gpics
+
+ARG UID
+ARG GID
+RUN apk add runuser
+RUN addgroup -g $GID -S appusergroup && \
+adduser -S -u $UID appuser -G appusergroup
+ENTRYPOINT ["/bin/sh", "entrypoint.sh"]
+CMD ["./gpics"]

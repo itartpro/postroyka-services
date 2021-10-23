@@ -31,9 +31,11 @@ func main() {
 		cmd := exec.Command("sh", "newcerts.sh")
 		err := cmd.Run()
 		if err != nil {
-			println("Certs microservice error:", err)
+			println("Certs microservice error:", err.Error())
 		} else {
 			println("Made new certs")
 		}
+	} else {
+		println("Certs are in place")
 	}
 }

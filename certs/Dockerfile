@@ -1,4 +1,11 @@
 FROM alpine
-WORKDIR /appservices/certs
+WORKDIR /home/appuser/appservices/certs
 COPY . .
-ENTRYPOINT ./gocheck
+ENTRYPOINT ./checkcerts
+
+#### For build
+#FROM golang:alpine
+#WORKDIR /appservices/certs
+#COPY . .
+#RUN go mod download
+#CMD go build -ldflags="-s -w" -o checkcerts && ./checkcerts

@@ -1,11 +1,17 @@
 ### For dev
 FROM golang:alpine
-WORKDIR /appservices/goservices/shared
+
+RUN apk add --no-cache tzdata
+ENV TZ Europe/Moscow
+RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN apk del tzdata
+
+WORKDIR /home/appuser/appservices/goservices/shared
 COPY shared .
-WORKDIR /appservices/goservices/auth
+WORKDIR /home/appuser/appservices/goservices/auth
 COPY auth .
 RUN go mod download
-ENTRYPOINT go run main.go
+CMD go run main.go
 
 #### For build
 #FROM golang:alpine
@@ -22,8 +28,22 @@ ENTRYPOINT go run main.go
 
 #### For production
 #FROM alpine
+
+#RUN apk add --no-cache tzdata
+#ENV TZ Europe/Moscow
+#RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+#RUN apk del tzdata
+
 #WORKDIR /appservices/goservices/shared
 #COPY shared .
 #WORKDIR /appservices/goservices/auth
 #COPY auth .
-#CMD chmod +x ./auth && ./auth
+
+#ARG UID
+#ARG GID
+#RUN apk add runuser
+#RUN addgroup -g $GID -S appusergroup && \
+#adduser -S -u $UID appuser -G appusergroup
+#ENTRYPOINT ["/bin/sh", "entrypoint.sh"]
+
+#CMD ["./auth"]

@@ -18,8 +18,10 @@ gen
 # secret services
 /goservices/gowebbackend/*
 !/goservices/gowebbackend/Dockerfile
+!/goservices/gowebbackend/entrypoint.sh
 !/goservices/gowebbackend/gowebbackend
 
 /goservices/gpics/*
 !/goservices/gpics/Dockerfile
+!/goservices/gpics/entrypoint.sh
 !/goservices/gpics/gpics

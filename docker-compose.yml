@@ -1,17 +1,25 @@
+# id -u and id -g on alpine linux and windows to see uid and gid
+#
+
 networks:
   docknet:
     external: true
 
 services:
   certs:
+    build:
+      context: ./certs
+      dockerfile: ./Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     logging:
       options:
         max-size: 5m
     env_file:
       - allvars.env
-    build: ./certs
     volumes:
-      - ./certs:/appservices/certs
+      - ./certs:/home/appuser/appservices/certs
 
   database:
     logging:
@@ -58,14 +66,17 @@ services:
     build:
       context: ./goservices
       dockerfile: gowebbackend/Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     restart: unless-stopped
     ports:
       - 1200:1200
     volumes:
-      - ./certs:/appservices/certs
-      - ./uploads:/appservices/uploads
-      - ./goservices/shared:/appservices/goservices/shared
-      - ./goservices/gowebbackend:/appservices/goservices/gowebbackend
+      - ./certs:/home/appuser/appservices/certs
+      - ./uploads:/home/appuser/appservices/uploads
+      - ./goservices/shared:/home/appuser/appservices/goservices/shared
+      - ./goservices/gowebbackend:/home/appuser/appservices/goservices/gowebbackend
     tty: true
     networks:
       - docknet
@@ -84,12 +95,15 @@ services:
     build:
       context: ./goservices
       dockerfile: gpics/Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     restart: unless-stopped
     volumes:
-      - ./certs:/appservices/certs
-      - ./uploads:/appservices/uploads
-      - ./goservices/shared:/appservices/goservices/shared
-      - ./goservices/gpics:/appservices/goservices/gpics
+      - ./certs:/home/appuser/appservices/certs
+      - ./uploads:/home/appuser/appservices/uploads
+      - ./goservices/shared:/home/appuser/appservices/goservices/shared
+      - ./goservices/gpics:/home/appuser/appservices/goservices/gpics
     tty: true
     networks:
       - docknet
@@ -108,12 +122,15 @@ services:
     build:
       context: ./goservices
       dockerfile: auth/Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     restart: unless-stopped
     volumes:
-      - ./certs:/appservices/certs
-      - ./uploads:/appservices/uploads
-      - ./goservices/shared:/appservices/goservices/shared
-      - ./goservices/auth:/appservices/goservices/auth
+      - ./certs:/home/appuser/appservices/certs
+      - ./uploads:/home/appuser/appservices/uploads
+      - ./goservices/shared:/home/appuser/appservices/goservices/shared
+      - ./goservices/auth:/home/appuser/appservices/goservices/auth
     tty: true
     networks:
       - docknet
@@ -133,12 +150,15 @@ services:
     build:
       context: ./goservices
       dockerfile: cats/Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     restart: unless-stopped
     volumes:
-      - ./certs:/appservices/certs
-      - ./uploads:/appservices/uploads
-      - ./goservices/shared:/appservices/goservices/shared
-      - ./goservices/cats:/appservices/goservices/cats
+      - ./certs:/home/appuser/appservices/certs
+      - ./uploads:/home/appuser/appservices/uploads
+      - ./goservices/shared:/home/appuser/appservices/goservices/shared
+      - ./goservices/cats:/home/appuser/appservices/goservices/cats
     tty: true
     networks:
       - docknet
