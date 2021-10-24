@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/georgysavva/scany/pgxscan"
@@ -43,7 +44,7 @@ type Country struct {
 }
 
 type Region struct {
-	Id        int32  `json:"id"`
+	Id        int16  `json:"id"`
 	Name      string `json:"name"`
 	CountryId int16  `json:"country_id"`
 }
@@ -106,6 +107,7 @@ type Order struct {
 	TownId		int32  `json:"town_id"`
 	Budget      int32  `json:"budget"`
 	Created  time.Time `json:"created"`
+	Completed   bool   `json:"completed"`
 }
 
 
@@ -648,6 +650,94 @@ func AddOrder(instructions string) (string, error) {
 	}
 
 	jm, err := json.Marshal(o)
+
+	return string(jm), nil
+}
+
+func whereInSqlFromInts(ints []int, column string) string {
+	var str string
+	for _, v := range ints {
+		str += strconv.Itoa(v) + `,`
+	}
+	str = str[:len(str)-1] // remove last ","
+	result := `WHERE `+column+` IN (`+str+`)`
+	return result
+}
+
+func GetOrders(instructions string) (string, error) {
+	limits := struct {
+		order_by   string `json:"order_by"`
+		limit      int    `json:"limit"`
+		offset     int    `json:"offset"`
+		service_id []int  `json:"service_id"`
+		town_id    []int  `json:"town_id"`
+		region_id  []int  `json:"region_id"`
+		login_id   []int  `json:"login_id"`
+		budgetGreater int `json:"budget_greater"`
+		budgetLess int `json:"budget_less"`
+	}{}
+	err := json.Unmarshal([]byte(instructions), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	sql := `SELECT * FROM orders`
+	if limits.order_by != "" {
+		sql += ` ORDER BY `+limits.order_by
+	}
+	if limits.limit != 0 {
+		sql += ` LIMIT `+strconv.Itoa(limits.limit)
+	}
+	if limits.offset != 0 {
+		sql += ` OFFSET `+strconv.Itoa(limits.offset)
+	}
+
+	if len(limits.service_id) > 0 {
+		sql += ` ` + whereInSqlFromInts(limits.service_id, "service_id")
+	}
+
+	if len(limits.town_id) > 0 {
+		sql += ` ` + whereInSqlFromInts(limits.town_id, "town_id")
+	}
+
+	if len(limits.region_id) > 0 {
+		sql += ` ` + whereInSqlFromInts(limits.region_id, "region_id")
+	}
+
+	if len(limits.login_id) > 0 {
+		sql += ` ` + whereInSqlFromInts(limits.login_id, "login_id")
+	}
+
+	if limits.budgetGreater != 0 {
+		sql += ` WHERE budget > `+strconv.Itoa(limits.budgetGreater)
+	}
+
+	if limits.budgetLess != 0 && limits.budgetGreater < limits.budgetLess {
+		sql += ` WHERE budget < `+strconv.Itoa(limits.budgetLess)
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var orders []*Order
+	err = pgxscan.Select(ctx, conn, &orders, sql)
+	if err != nil {
+		return "", err
+	}
+
+	if len(orders) < 1 {
+		err = errors.New("no rows found")
+		return "", err
+	}
+
+	jm, err := json.Marshal(orders)
+	if err != nil {
+		return "", err
+	}
 
 	return string(jm), nil
 }

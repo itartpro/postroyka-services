@@ -384,6 +384,13 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "get-orders" {
+		str, err := dbops.GetOrders(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
 	return &res, nil
 }
 
