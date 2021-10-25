@@ -1,5 +1,5 @@
 # id -u and id -g on alpine linux and windows to see uid and gid
-#
+
 
 networks:
   docknet:
@@ -11,15 +11,14 @@ services:
       context: ./certs
       dockerfile: ./Dockerfile
       args:
-        UID: ${UID}
-        GID: ${GID}
+        MYUSERNAME: ${MYUSERNAME}
     logging:
       options:
         max-size: 5m
     env_file:
       - allvars.env
     volumes:
-      - ./certs:/home/appuser/appservices/certs
+      - ./certs:/home/${MYUSERNAME}/appservices/certs
 
   database:
     logging:
@@ -69,14 +68,16 @@ services:
       args:
         UID: ${UID}
         GID: ${GID}
+        MYUSERNAME: ${MYUSERNAME}
+        MYUSERGROUP: ${MYUSERGROUP}
     restart: unless-stopped
     ports:
       - 1200:1200
     volumes:
-      - ./certs:/home/appuser/appservices/certs
-      - ./uploads:/home/appuser/appservices/uploads
-      - ./goservices/shared:/home/appuser/appservices/goservices/shared
-      - ./goservices/gowebbackend:/home/appuser/appservices/goservices/gowebbackend
+      - ./certs:/home/${MYUSERNAME}/appservices/certs
+      - ./uploads:/home/${MYUSERNAME}/appservices/uploads
+      - ./goservices/shared:/home/${MYUSERNAME}/appservices/goservices/shared
+      - ./goservices/gowebbackend:/home/${MYUSERNAME}/appservices/goservices/gowebbackend
     tty: true
     networks:
       - docknet
@@ -98,12 +99,14 @@ services:
       args:
         UID: ${UID}
         GID: ${GID}
+        MYUSERNAME: ${MYUSERNAME}
+        MYUSERGROUP: ${MYUSERGROUP}
     restart: unless-stopped
     volumes:
-      - ./certs:/home/appuser/appservices/certs
-      - ./uploads:/home/appuser/appservices/uploads
-      - ./goservices/shared:/home/appuser/appservices/goservices/shared
-      - ./goservices/gpics:/home/appuser/appservices/goservices/gpics
+      - ./certs:/home/${MYUSERNAME}/appservices/certs
+      - ./uploads:/home/${MYUSERNAME}/appservices/uploads
+      - ./goservices/shared:/home/${MYUSERNAME}/appservices/goservices/shared
+      - ./goservices/gpics:/home/${MYUSERNAME}/appservices/goservices/gpics
     tty: true
     networks:
       - docknet
@@ -125,12 +128,14 @@ services:
       args:
         UID: ${UID}
         GID: ${GID}
+        MYUSERNAME: ${MYUSERNAME}
+        MYUSERGROUP: ${MYUSERGROUP}
     restart: unless-stopped
     volumes:
-      - ./certs:/home/appuser/appservices/certs
-      - ./uploads:/home/appuser/appservices/uploads
-      - ./goservices/shared:/home/appuser/appservices/goservices/shared
-      - ./goservices/auth:/home/appuser/appservices/goservices/auth
+      - ./certs:/home/${MYUSERNAME}/appservices/certs
+      - ./uploads:/home/${MYUSERNAME}/appservices/uploads
+      - ./goservices/shared:/home/${MYUSERNAME}/appservices/goservices/shared
+      - ./goservices/auth:/home/${MYUSERNAME}/appservices/goservices/auth
     tty: true
     networks:
       - docknet
@@ -153,12 +158,14 @@ services:
       args:
         UID: ${UID}
         GID: ${GID}
+        MYUSERNAME: ${MYUSERNAME}
+        MYUSERGROUP: ${MYUSERGROUP}
     restart: unless-stopped
     volumes:
-      - ./certs:/home/appuser/appservices/certs
-      - ./uploads:/home/appuser/appservices/uploads
-      - ./goservices/shared:/home/appuser/appservices/goservices/shared
-      - ./goservices/cats:/home/appuser/appservices/goservices/cats
+      - ./certs:/home/${MYUSERNAME}/appservices/certs
+      - ./uploads:/home/${MYUSERNAME}/appservices/uploads
+      - ./goservices/shared:/home/${MYUSERNAME}/appservices/goservices/shared
+      - ./goservices/cats:/home/${MYUSERNAME}/appservices/goservices/cats
     tty: true
     networks:
       - docknet

@@ -1,42 +1,50 @@
-## For dev
+### For dev
 #FROM golang:alpine
-#WORKDIR /home/appuser/appservices/goservices/shared
+#
+#ENV MAINPNAME gowebbackend
+#ARG UID
+#ARG GID
+#ARG MYUSERNAME
+#ARG MYUSERGROUP
+#ENV MYUSERNAME ${MYUSERNAME}
+#ENV MYUSERGROUP ${MYUSERGROUP}
+#
+#RUN apk add runuser
+#RUN addgroup -g $GID -S $MYUSERGROUP && \
+#adduser -S -u $UID $MYUSERNAME -G $MYUSERGROUP
+#
+#WORKDIR /home/$MYUSERNAME/appservices/goservices/shared
 #COPY shared .
-#WORKDIR /home/appuser/appservices/goservices/gowebbackend
-#COPY gowebbackend .
-#RUN go mod download
-#ENTRYPOINT go run main.go
-
-## For build
-#FROM golang:alpine
-#WORKDIR /appservices/goservices/shared
-#COPY shared .
-#WORKDIR /appservices/goservices/gowebbackend
-#COPY gowebbackend .
-#RUN go mod download
-#CMD go build -ldflags="-s -w" -o gowebbackend && ./gowebbackend
-
+#WORKDIR /home/$MYUSERNAME/appservices/goservices/$MAINPNAME
+#COPY $MAINPNAME .
+#
+#ENTRYPOINT chown -R $MYUSERNAME:$MYUSERGROUP /home/$MYUSERNAME/appservices && \
+#exec runuser -u $MYUSERNAME go run main.go
+### For build
+#ENTRYPOINT go build -ldflags="-s -w" -o $MAINPNAME && ./$MAINPNAME
 ## if i want to zip it
-# RUN apk add upx
-# CMD go build -ldflags="-s -w" -o gowebbackend && upx -9 -k gowebbackend && ./gowebbackend
+#RUN apk add upx
+#ENTRYPOINT go build -ldflags="-s -w" -o $MAINPNAME && upx -9 -k $MAINPNAME && ./$MAINPNAME
 
 ## For production
 FROM alpine
 
-RUN apk add --no-cache tzdata
-ENV TZ Europe/Moscow
-RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-RUN apk del tzdata
-
-WORKDIR /home/appuser/appservices/goservices/shared
-COPY shared .
-WORKDIR /home/appuser/appservices/goservices/gowebbackend
-COPY gowebbackend .
-
+ENV MAINPNAME gowebbackend
 ARG UID
 ARG GID
+ARG MYUSERNAME
+ARG MYUSERGROUP
+ENV MYUSERNAME ${MYUSERNAME}
+ENV MYUSERGROUP ${MYUSERGROUP}
+
 RUN apk add runuser
-RUN addgroup -g $GID -S appusergroup && \
-adduser -S -u $UID appuser -G appusergroup
-ENTRYPOINT ["/bin/sh", "entrypoint.sh"]
-CMD ["./gowebbackend"]
+RUN addgroup -g $GID -S $MYUSERGROUP && \
+adduser -S -u $UID $MYUSERNAME -G $MYUSERGROUP
+
+WORKDIR /home/$MYUSERNAME/appservices/goservices/shared
+COPY shared .
+WORKDIR /home/$MYUSERNAME/appservices/goservices/$MAINPNAME
+COPY $MAINPNAME .
+
+ENTRYPOINT chown -R $MYUSERNAME:$MYUSERGROUP /home/$MYUSERNAME/appservices && \
+exec runuser -u $MYUSERNAME ./$MAINPNAME

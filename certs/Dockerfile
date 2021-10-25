@@ -1,5 +1,7 @@
 FROM alpine
-WORKDIR /home/appuser/appservices/certs
+ARG MYUSERNAME
+
+WORKDIR /home/$MYUSERNAME/appservices/certs
 COPY . .
 ENTRYPOINT ./checkcerts
 
