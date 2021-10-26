@@ -1,6 +1,3 @@
-# id -u and id -g on alpine linux and windows to see uid and gid
-
-
 networks:
   docknet:
     external: true
@@ -27,11 +24,20 @@ services:
     env_file:
       - allvars.env
     image: postgres:alpine
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=100"
     restart: unless-stopped
     volumes:
       - ./db:/var/lib/postgresql/data
     networks:
       - docknet
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
 
   pgadmin:
     logging:
@@ -186,7 +192,8 @@ services:
     networks:
       - docknet
     volumes:
-      - ./uploads:/var/www/uploads
+      - ./uploads:/var/www/static/uploads
+      - ../webapp/public:/var/www/static/public
       - ./nginx/conf.d:/etc/nginx/conf.d/
     labels:
       - "traefik.enable=true"
