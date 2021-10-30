@@ -47,6 +47,7 @@ type Region struct {
 	Id        int16  `json:"id"`
 	Name      string `json:"name"`
 	CountryId int16  `json:"country_id"`
+	Slug      string `json:"slug"`
 }
 
 type Town struct {
@@ -54,7 +55,10 @@ type Town struct {
 	Name      string `json:"name"`
 	CountryId int16  `json:"country_id"`
 	RegionId  int16  `json:"region_id"`
+	Slug      string `json:"slug"`
 }
+
+
 
 type Choice struct {
 	Id        int32 `json:"id"`
@@ -110,7 +114,41 @@ type Order struct {
 	Completed   bool   `json:"completed"`
 }
 
+//misc
+func UpdateCell(instructions string) error {
+	var c cell
 
+	err := json.Unmarshal([]byte(instructions), &c)
+	if err != nil {
+		return err
+	}
+
+	if c.Table != "logins" {
+		err = errors.New("access denied")
+		return err
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ct, err := conn.Exec(ctx, `Update `+c.Table+` SET `+c.Column+` = $1 WHERE id = $2`, c.Value, c.Id)
+	if err != nil {
+		return err
+	}
+
+	if ct.RowsAffected() == 0 {
+		err = errors.New("no rows found")
+		return err
+	}
+
+	return nil
+}
+
+//logins
 func TryLogin(login string, pwd string) (User, error) {
 
 	var user User
@@ -231,79 +269,6 @@ func UpdateLogin(u User) error {
 	return nil
 }
 
-func ReadCountries() ([]Country, error) {
-	var cs []Country
-
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return cs, err
-	}
-	defer conn.Close()
-
-	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM countries`)
-	if err != nil {
-		return cs, err
-	}
-
-	return cs, nil
-}
-
-func ReadRegions(id int16) ([]Region, error) {
-	var rs []Region
-
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return rs, err
-	}
-	defer conn.Close()
-
-	err = pgxscan.Select(ctx, conn, &rs, `SELECT * FROM regions WHERE country_id = $1`, id)
-	if err != nil {
-		return rs, err
-	}
-
-	return rs, nil
-}
-
-func ReadTowns(id int16) ([]Town, error) {
-	var ts []Town
-
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return ts, err
-	}
-	defer conn.Close()
-
-	err = pgxscan.Select(ctx, conn, &ts, `SELECT * FROM towns WHERE region_id = $1`, id)
-	if err != nil {
-		return ts, err
-	}
-
-	return ts, nil
-}
-
-func NewCountry(c Country) (Country, error) {
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return c, err
-	}
-	defer conn.Close()
-
-	row := conn.QueryRow(ctx, "INSERT INTO countries (name) VALUES ($1) RETURNING id", c.Name)
-
-	var id int16
-	if err = row.Scan(&id); err != nil {
-		return c, err
-	}
-	c.Id = id
-
-	return c, nil
-}
-
 func UpdateRefresh(id string, hash string) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
@@ -372,7 +337,159 @@ func TryRefresh(id string, hash string) (User, error) {
 	return user, err
 }
 
+//countries, regions and towns
+func ReadCountries() ([]Country, error) {
+	var cs []Country
 
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return cs, err
+	}
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &cs, `SELECT * FROM countries`)
+	if err != nil {
+		return cs, err
+	}
+
+	return cs, nil
+}
+
+func ReadRegions(id int16) ([]Region, error) {
+	var rs []Region
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return rs, err
+	}
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &rs, `SELECT * FROM regions WHERE country_id = $1`, id)
+	if err != nil {
+		return rs, err
+	}
+
+	return rs, nil
+}
+
+func ReadTowns(id int16) ([]Town, error) {
+	var ts []Town
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return ts, err
+	}
+	defer conn.Close()
+
+	err = pgxscan.Select(ctx, conn, &ts, `SELECT * FROM towns WHERE region_id = $1`, id)
+	if err != nil {
+		return ts, err
+	}
+
+	return ts, nil
+}
+
+func pgxScanSelect(dst interface{}, query string) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	err = pgxscan.Select(ctx, conn, dst, query)
+	return nil
+}
+
+func selectWhereIn(table string, instructions string, dst interface{}) error {
+	whereIn := struct {
+		Column string   `json:"column"`
+		Values []string `json:"values"`
+	}{}
+	err := json.Unmarshal([]byte(instructions), &whereIn)
+	if err != nil {
+		return err
+	}
+
+	var str string
+	for _, v := range whereIn.Values {
+		str += v + `,`
+	}
+	str = str[:len(str)-1] // remove last ","
+	sqlStr := `SELECT * FROM `+table+` WHERE `+whereIn.Column+` IN (`+str+`)`
+
+	err = pgxScanSelect(dst, sqlStr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func TownsWhereIn(instructions string) (string, error) {
+	var items []*Town
+
+	err := selectWhereIn("towns", instructions, &items)
+	if err != nil {
+		return "", err
+	}
+
+	if len(items) < 1 {
+		err = errors.New(`"no rows found""`)
+		return "", err
+	}
+
+	b, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(b), nil
+}
+
+func RegionsWhereIn(instructions string) (string, error) {
+	var items []*Region
+
+	err := selectWhereIn("regions", instructions, &items)
+	if err != nil {
+		return "", err
+	}
+
+	if len(items) < 1 {
+		err = errors.New(`"no rows found""`)
+		return "", err
+	}
+
+	b, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(b), nil
+}
+
+func NewCountry(c Country) (Country, error) {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return c, err
+	}
+	defer conn.Close()
+
+	row := conn.QueryRow(ctx, "INSERT INTO countries (name) VALUES ($1) RETURNING id", c.Name)
+
+	var id int16
+	if err = row.Scan(&id); err != nil {
+		return c, err
+	}
+	c.Id = id
+
+	return c, nil
+}
+
+//services
 func UpdateServiceChoices(news []Choice) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
@@ -491,41 +608,7 @@ func GetMastersChoices(id int32) ([]Choice, error) {
 	return cs, nil
 }
 
-
-func UpdateCell(instructions string) error {
-	var c cell
-
-	err := json.Unmarshal([]byte(instructions), &c)
-	if err != nil {
-		return err
-	}
-
-	if c.Table != "logins" {
-		err = errors.New("access denied")
-		return err
-	}
-
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	ct, err := conn.Exec(ctx, `Update `+c.Table+` SET `+c.Column+` = $1 WHERE id = $2`, c.Value, c.Id)
-	if err != nil {
-		return err
-	}
-
-	if ct.RowsAffected() == 0 {
-		err = errors.New("no rows found")
-		return err
-	}
-
-	return nil
-}
-
-
+//portfolio stuff
 func AddWork(instructions string) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))

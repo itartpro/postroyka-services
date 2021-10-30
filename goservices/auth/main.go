@@ -247,6 +247,20 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "towns-where-in" {
+		str, err := dbops.TownsWhereIn(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	if op == "regions-where-in" {
+		str, err := dbops.RegionsWhereIn(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
 	if op == "new-country" {
 		var country dbops.Country
 		err := json.Unmarshal([]byte(instructions), &country)
