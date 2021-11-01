@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"log"
@@ -26,7 +27,6 @@ type server struct{}
 func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.DataResponse, error) {
 
 	var res grpcc.DataResponse
-	res.Result = result("false", `"noop or error"`)
 
 	instructions := req.GetData().GetInstructions()
 	op := req.GetData().GetAction()
@@ -36,6 +36,13 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		err := dbops.UpdateCell(instructions)
 		if err != nil {return &res, err}
 		res.Result = result("true", instructions)
+		return &res, nil
+	}
+
+	if op == "get-row" {
+		contents, err := dbops.GetRow(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", contents)
 		return &res, nil
 	}
 
@@ -186,6 +193,21 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		}
 
 		res.Result = result("true", `"updated successfully"`)
+		return &res, nil
+	}
+
+	if op == "get-masters" {
+		masters, err := dbops.GetMasters()
+		if err != nil {
+			return &res, err
+		}
+
+		jm, err := json.Marshal(masters)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", string(jm))
 		return &res, nil
 	}
 
@@ -405,7 +427,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
-	return &res, nil
+	return &res, errors.New("noop")
 }
 
 func main() {

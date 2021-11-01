@@ -95,8 +95,18 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		c.Id = id
 		c.SortOrder = id
 
-		if _, err = conn.Exec(ctx, `UPDATE cats SET sort_order = $1 WHERE id = $1`, id); err != nil {
-			c.SortOrder = 0
+		//check for duplicate slugs
+		var dup cat
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM cats WHERE slug=$1`, c.Slug)
+		if dup.Id > 0 {
+			c.Slug += "-" + strconv.Itoa(int(c.Id))
+			if _, err = conn.Exec(ctx, `UPDATE cats SET sort_order = $1, slug = $2 WHERE id = $1`, id, c.Slug); err != nil {
+				c.SortOrder = 0
+			}
+		} else {
+			if _, err = conn.Exec(ctx, `UPDATE cats SET sort_order = $1 WHERE id = $1`, id); err != nil {
+				c.SortOrder = 0
+			}
 		}
 
 		b, err := json.Marshal(c)
@@ -213,13 +223,20 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	if op == "update" {
-		var cat cat
-		if err := json.Unmarshal([]byte(instructions), &cat); err != nil {
+		var c cat
+		if err := json.Unmarshal([]byte(instructions), &c); err != nil {
 			return &res, err
 		}
 
+		//check for duplicate slugs
+		var dup cat
+		_ = pgxscan.Get(ctx, conn, &dup, `SELECT * FROM cats WHERE slug=$1`, c.Slug)
+		if dup.Id > 0 {
+			c.Slug += "-" + strconv.Itoa(int(c.Id))
+		}
+
 		ct, err := conn.Exec(ctx, `UPDATE cats SET parent_id = $1, name = $2, slug = $3, title = $4, description = $5, keywords = $6, author = $7, h1 = $8, text = $9, image = $10, sort_order = $11, created_at = $12, extra = $13 WHERE id = $14`,
-			cat.ParentId, cat.Name, cat.Slug, cat.Title, cat.Description, cat.Keywords, cat.Author, cat.H1, cat.Text, cat.Image, cat.SortOrder, cat.CreatedAt, cat.Extra, cat.Id)
+			c.ParentId, c.Name, c.Slug, c.Title, c.Description, c.Keywords, c.Author, c.H1, c.Text, c.Image, c.SortOrder, c.CreatedAt, c.Extra, c.Id)
 		if err != nil {
 			return &res, err
 		}
