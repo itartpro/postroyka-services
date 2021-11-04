@@ -197,17 +197,9 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	}
 
 	if op == "get-masters" {
-		masters, err := dbops.GetMasters()
-		if err != nil {
-			return &res, err
-		}
-
-		jm, err := json.Marshal(masters)
-		if err != nil {
-			return &res, err
-		}
-
-		res.Result = result("true", string(jm))
+		str, err := dbops.GetMasters(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
 		return &res, nil
 	}
 
@@ -390,6 +382,21 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	//territory updates
+	if op == "update-territory-choices" {
+		err := dbops.UpdateTerritory(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", `"update-territory-choices"`)
+		return &res, nil
+	}
+
+	if op == "get-territories" {
+		str, err := dbops.GetTerritories(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
 	//portfolio stuff
 	if op == "add-work" {
 		err := dbops.AddWork(instructions)
@@ -407,6 +414,13 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 	if op == "get-portfolio" {
 		str, err := dbops.GetPortfolio(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	if op == "masters-portfolios" {
+		str, err := dbops.MastersPortfolios(instructions)
 		if err != nil {return &res, err}
 		res.Result = result("true", str)
 		return &res, nil
@@ -432,7 +446,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 func main() {
 	//init logging
-	f, err := os.OpenFile(os.Getenv("GOSERVICES_LOG"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	f, err := os.OpenFile(os.Getenv("GOSERVICES_LOG"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}

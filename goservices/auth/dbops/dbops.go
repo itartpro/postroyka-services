@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -81,7 +80,7 @@ type Comment struct {
 	Text        string `json:"text"`
 }
 
-type cell struct {
+type Cell struct {
 	Id     int32  `json:"id"`
 	Column string `json:"column"`
 	Value  string `json:"value"`
@@ -113,9 +112,16 @@ type Order struct {
 	Completed   bool   `json:"completed"`
 }
 
+type Territory struct {
+	Id       int32 `json:"id"`
+	LoginId  int32 `json:"login_id"`
+	RegionId int16 `json:"region_id"`
+	TownId   int32 `json:"town_id"`
+}
+
 //misc
 func UpdateCell(instructions string) error {
-	var c cell
+	var c Cell
 
 	err := json.Unmarshal([]byte(instructions), &c)
 	if err != nil {
@@ -148,8 +154,7 @@ func UpdateCell(instructions string) error {
 }
 
 func GetRow(instructions string) (string, error) {
-	var c cell
-
+	var c Cell
 	err := json.Unmarshal([]byte(instructions), &c)
 	if err != nil {
 		return "", err
@@ -163,12 +168,12 @@ func GetRow(instructions string) (string, error) {
 	}
 	defer conn.Close()
 
-	log.Print(query)
-
 	if c.Table == "regions" {
 		var i Region
 		err = pgxscan.Get(ctx, conn, &i, query, c.Value)
-		log.Print(i)
+		if err != nil {
+			return "", err
+		}
 		jm, err := json.Marshal(i)
 		if err != nil {
 			return "", err
@@ -179,7 +184,9 @@ func GetRow(instructions string) (string, error) {
 	if c.Table == "towns" {
 		var i Town
 		err = pgxscan.Get(ctx, conn, &i, query, c.Value)
-		log.Print(i)
+		if err != nil {
+			return "", err
+		}
 		jm, err := json.Marshal(i)
 		if err != nil {
 			return "", err
@@ -219,6 +226,16 @@ func selectWhereIn(table string, instructions string, dst interface{}) error {
 	}
 
 	return nil
+}
+
+func inSqlFromInts(ints []int, column string) string {
+	var str string
+	for _, v := range ints {
+		str += strconv.Itoa(v) + `,`
+	}
+	str = str[:len(str)-1] // remove last ","
+	result := column+` IN (`+str+`)`
+	return result
 }
 
 //logins
@@ -410,20 +427,46 @@ func TryRefresh(id string, hash string) (User, error) {
 	return user, err
 }
 
-func GetMasters() ([]User, error) {
-	var ms []User
+func GetMasters(instructions string) (string, error) {
+
+	limits := struct {
+		LoginId  []int `json:"login_id"`
+	}{}
+	err := json.Unmarshal([]byte(instructions), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	summary := `about, avatar, balance, company, created, email,first_name, id, last_name, last_online, legal, level, paternal_name, phone, rating, region_id, town_id`
+	sql := `SELECT `+summary+` FROM logins WHERE level = 2`
+	if len(limits.LoginId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.LoginId, "id")
+	}
+
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
-		return ms, err
+		return "", err
 	}
 	defer conn.Close()
-	summary := `about, avatar, balance, company, created, email,first_name, id, last_name, last_online, legal, level, paternal_name, phone, rating, region_id, town_id`
-	err = pgxscan.Select(ctx, conn, &ms, `SELECT `+summary+` FROM logins WHERE level = 2`)
+
+	var items []*User
+	err = pgxscan.Select(ctx, conn, &items, sql)
 	if err != nil {
-		return ms, err
+		return "", err
 	}
-	return ms, nil
+
+	if len(items) < 1 {
+		err = errors.New("no rows found")
+		return "", err
+	}
+
+	jm, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
 }
 
 //countries, regions and towns
@@ -668,6 +711,111 @@ func GetMastersChoices(id int32) ([]Choice, error) {
 	return cs, nil
 }
 
+//territory
+func UpdateTerritory(instructions string) error {
+	var news []Territory
+	err := json.Unmarshal([]byte(instructions), &news)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	//First get all old choices in case something needs to be deleted
+	var old []Territory
+	err = pgxscan.Select(ctx, conn, &old, `SELECT * FROM territories WHERE login_id = $1`, news[0].LoginId)
+	if err != nil {
+		return err
+	}
+
+	if len(news) >= len(old) {
+		for i := range news {
+			if i < len(old) {
+				_, err = conn.Exec(ctx, `UPDATE territories SET region_id = $1, town_id = $2  WHERE id = $3`, news[i].RegionId, news[i].TownId, old[i].Id)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = conn.Exec(ctx, `INSERT INTO territories (login_id, region_id, town_id) VALUES ($1, $2, $3)`, news[i].LoginId, news[i].RegionId, news[i].TownId)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if len(old) > len(news) {
+		for i := range old {
+			if i < len(news) {
+				_, err = conn.Exec(ctx, `UPDATE territories SET region_id = $1, town_id = $2 WHERE id = $3`, news[i].RegionId, news[i].TownId, old[i].Id)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = conn.Exec(ctx, `DELETE FROM territories WHERE id = $1`, old[i].Id)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func GetTerritories(instructions string) (string, error) {
+	limits := struct {
+		LoginId  []int `json:"login_id"`
+		RegionId []int `json:"region_id"`
+		TownId   []int `json:"town_id"`
+	}{}
+	err := json.Unmarshal([]byte(instructions), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	sql := `SELECT * FROM territories WHERE id > 0`
+	if len(limits.LoginId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.LoginId, "login_id")
+	}
+	if len(limits.RegionId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.RegionId, "region_id")
+	}
+	if len(limits.TownId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.TownId, "town_id")
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var items []*Territory
+	err = pgxscan.Select(ctx, conn, &items, sql)
+	if err != nil {
+		return "", err
+	}
+
+	if len(items) < 1 {
+		err = errors.New("no rows found")
+		return "", err
+	}
+
+	jm, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
+}
+
 //portfolio stuff
 func AddWork(instructions string) error {
 	var w PortfolioWork
@@ -749,6 +897,50 @@ func GetPortfolio(instructions string) (string, error) {
 	return string(jm), nil
 }
 
+func MastersPortfolios(instructions string) (string, error) {
+	limits := struct {
+		LoginId   []int  `json:"login_id"`
+		ServiceId []int  `json:"service_id"`
+	}{}
+	err := json.Unmarshal([]byte(instructions), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	sql := `SELECT * FROM portfolio WHERE id > 0`
+	if len(limits.LoginId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.LoginId, "login_id")
+	}
+	if len(limits.ServiceId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.ServiceId, "service_id")
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var items []*PortfolioWork
+	err = pgxscan.Select(ctx, conn, &items, sql)
+	if err != nil {
+		return "", err
+	}
+
+	if len(items) < 1 {
+		err = errors.New("no rows found")
+		return "", err
+	}
+
+	jm, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
+}
+
 func GetProfileComments(id int32) ([]Comment, error) {
 	var cs []Comment
 
@@ -793,27 +985,17 @@ func AddOrder(instructions string) (string, error) {
 	return string(jm), nil
 }
 
-func whereInSqlFromInts(ints []int, column string) string {
-	var str string
-	for _, v := range ints {
-		str += strconv.Itoa(v) + `,`
-	}
-	str = str[:len(str)-1] // remove last ","
-	result := `WHERE `+column+` IN (`+str+`)`
-	return result
-}
-
 func GetOrders(instructions string) (string, error) {
 	limits := struct {
-		order_by   string `json:"order_by"`
-		limit      int    `json:"limit"`
-		offset     int    `json:"offset"`
-		service_id []int  `json:"service_id"`
-		town_id    []int  `json:"town_id"`
-		region_id  []int  `json:"region_id"`
-		login_id   []int  `json:"login_id"`
-		budgetGreater int `json:"budget_greater"`
-		budgetLess int `json:"budget_less"`
+		OrderBy   string `json:"order_by"`
+		Limit      int    `json:"limit"`
+		Offset     int    `json:"offset"`
+		ServiceId []int  `json:"service_id"`
+		TownId    []int  `json:"town_id"`
+		RegionId  []int  `json:"region_id"`
+		LoginId   []int  `json:"login_id"`
+		BudgetGreater int `json:"budget_greater"`
+		BudgetLess int `json:"budget_less"`
 	}{}
 	err := json.Unmarshal([]byte(instructions), &limits)
 	if err != nil {
@@ -821,38 +1003,38 @@ func GetOrders(instructions string) (string, error) {
 	}
 
 	sql := `SELECT * FROM orders`
-	if limits.order_by != "" {
-		sql += ` ORDER BY `+limits.order_by
+	if limits.OrderBy != "" {
+		sql += ` ORDER BY `+limits.OrderBy
 	}
-	if limits.limit != 0 {
-		sql += ` LIMIT `+strconv.Itoa(limits.limit)
+	if limits.Limit != 0 {
+		sql += ` LIMIT `+strconv.Itoa(limits.Limit)
 	}
-	if limits.offset != 0 {
-		sql += ` OFFSET `+strconv.Itoa(limits.offset)
-	}
-
-	if len(limits.service_id) > 0 {
-		sql += ` ` + whereInSqlFromInts(limits.service_id, "service_id")
+	if limits.Offset != 0 {
+		sql += ` OFFSET `+strconv.Itoa(limits.Offset)
 	}
 
-	if len(limits.town_id) > 0 {
-		sql += ` ` + whereInSqlFromInts(limits.town_id, "town_id")
+	if len(limits.ServiceId) > 0 {
+		sql += ` ` + inSqlFromInts(limits.ServiceId, "service_id")
 	}
 
-	if len(limits.region_id) > 0 {
-		sql += ` ` + whereInSqlFromInts(limits.region_id, "region_id")
+	if len(limits.TownId) > 0 {
+		sql += ` ` + inSqlFromInts(limits.TownId, "town_id")
 	}
 
-	if len(limits.login_id) > 0 {
-		sql += ` ` + whereInSqlFromInts(limits.login_id, "login_id")
+	if len(limits.RegionId) > 0 {
+		sql += ` ` + inSqlFromInts(limits.RegionId, "region_id")
 	}
 
-	if limits.budgetGreater != 0 {
-		sql += ` WHERE budget > `+strconv.Itoa(limits.budgetGreater)
+	if len(limits.LoginId) > 0 {
+		sql += ` ` + inSqlFromInts(limits.LoginId, "login_id")
 	}
 
-	if limits.budgetLess != 0 && limits.budgetGreater < limits.budgetLess {
-		sql += ` WHERE budget < `+strconv.Itoa(limits.budgetLess)
+	if limits.BudgetGreater != 0 {
+		sql += ` WHERE budget > `+strconv.Itoa(limits.BudgetGreater)
+	}
+
+	if limits.BudgetLess != 0 && limits.BudgetGreater < limits.BudgetLess {
+		sql += ` WHERE budget < `+strconv.Itoa(limits.BudgetLess)
 	}
 
 	ctx := context.Background()
