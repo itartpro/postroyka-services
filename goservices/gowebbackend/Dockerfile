@@ -17,12 +17,12 @@
 #COPY shared .
 #WORKDIR /home/$MYUSERNAME/appservices/goservices/$MAINPNAME
 #COPY $MAINPNAME .
-#
+
 #ENTRYPOINT chown -R $MYUSERNAME:$MYUSERGROUP /home/$MYUSERNAME/appservices && \
 #exec runuser -u $MYUSERNAME go run main.go
-### For build
-#ENTRYPOINT go build -ldflags="-s -w" -o $MAINPNAME && ./$MAINPNAME
-## if i want to zip it
+## For build
+#CMD go build -ldflags="-s -w" -o $MAINPNAME && ./$MAINPNAME
+# if i want to zip it
 #RUN apk add upx
 #ENTRYPOINT go build -ldflags="-s -w" -o $MAINPNAME && upx -9 -k $MAINPNAME && ./$MAINPNAME
 

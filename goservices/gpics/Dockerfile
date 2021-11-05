@@ -20,3 +20,5 @@ COPY $MAINPNAME .
 
 ENTRYPOINT chown -R $MYUSERNAME:$MYUSERGROUP /home/$MYUSERNAME/appservices && \
 exec runuser -u $MYUSERNAME ./$MAINPNAME
+## For build
+#CMD go build -ldflags="-s -w" -o $MAINPNAME && ./$MAINPNAME

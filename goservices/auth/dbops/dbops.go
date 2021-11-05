@@ -120,10 +120,41 @@ type Territory struct {
 }
 
 //misc
-func UpdateCell(instructions string) error {
+func selectWhereIn(table string, info string, dst interface{}) error {
+	whereIn := struct {
+		Column string   `json:"column"`
+		Values []string `json:"values"`
+	}{}
+	err := json.Unmarshal([]byte(info), &whereIn)
+	if err != nil {
+		return err
+	}
+
+	var str string
+	for _, v := range whereIn.Values {
+		str += v + `,`
+	}
+	str = str[:len(str)-1] // remove last ","
+	query := `SELECT * FROM `+table+` WHERE `+whereIn.Column+` IN (`+str+`)`
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	err = pgxscan.Select(ctx, conn, dst, query)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UpdateCell(info string) error {
 	var c Cell
 
-	err := json.Unmarshal([]byte(instructions), &c)
+	err := json.Unmarshal([]byte(info), &c)
 	if err != nil {
 		return err
 	}
@@ -153,9 +184,9 @@ func UpdateCell(instructions string) error {
 	return nil
 }
 
-func GetRow(instructions string) (string, error) {
+func GetRow(info string) (string, error) {
 	var c Cell
-	err := json.Unmarshal([]byte(instructions), &c)
+	err := json.Unmarshal([]byte(info), &c)
 	if err != nil {
 		return "", err
 	}
@@ -195,37 +226,6 @@ func GetRow(instructions string) (string, error) {
 	}
 
 	return "",nil
-}
-
-func selectWhereIn(table string, instructions string, dst interface{}) error {
-	whereIn := struct {
-		Column string   `json:"column"`
-		Values []string `json:"values"`
-	}{}
-	err := json.Unmarshal([]byte(instructions), &whereIn)
-	if err != nil {
-		return err
-	}
-
-	var str string
-	for _, v := range whereIn.Values {
-		str += v + `,`
-	}
-	str = str[:len(str)-1] // remove last ","
-	query := `SELECT * FROM `+table+` WHERE `+whereIn.Column+` IN (`+str+`)`
-
-	ctx := context.Background()
-	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	err = pgxscan.Select(ctx, conn, dst, query)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func inSqlFromInts(ints []int, column string) string {
@@ -427,12 +427,12 @@ func TryRefresh(id string, hash string) (User, error) {
 	return user, err
 }
 
-func GetMasters(instructions string) (string, error) {
+func GetMasters(info string) (string, error) {
 
 	limits := struct {
 		LoginId  []int `json:"login_id"`
 	}{}
-	err := json.Unmarshal([]byte(instructions), &limits)
+	err := json.Unmarshal([]byte(info), &limits)
 	if err != nil {
 		return "", err
 	}
@@ -531,10 +531,10 @@ func ReadTowns(id int16) ([]Town, error) {
 	return ts, nil
 }
 
-func TownsWhereIn(instructions string) (string, error) {
+func TownsWhereIn(info string) (string, error) {
 	var items []*Town
 
-	err := selectWhereIn("towns", instructions, &items)
+	err := selectWhereIn("towns", info, &items)
 	if err != nil {
 		return "", err
 	}
@@ -552,10 +552,10 @@ func TownsWhereIn(instructions string) (string, error) {
 	return string(b), nil
 }
 
-func RegionsWhereIn(instructions string) (string, error) {
+func RegionsWhereIn(info string) (string, error) {
 	var items []*Region
 
-	err := selectWhereIn("regions", instructions, &items)
+	err := selectWhereIn("regions", info, &items)
 	if err != nil {
 		return "", err
 	}
@@ -711,10 +711,59 @@ func GetMastersChoices(id int32) ([]Choice, error) {
 	return cs, nil
 }
 
+func GetChoices(info string) (string, error) {
+	limits := struct {
+		Id  	  []int `json:"id"`
+		LoginId   []int `json:"login_id"`
+		ServiceId []int `json:"service_id"`
+	}{}
+
+	err := json.Unmarshal([]byte(info), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	sql := `SELECT * FROM choices WHERE id > 0`
+	if len(limits.Id) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.Id, "id")
+	}
+	if len(limits.LoginId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.LoginId, "login_id")
+	}
+	if len(limits.ServiceId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.ServiceId, "service_id")
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var items []*Choice
+	err = pgxscan.Select(ctx, conn, &items, sql)
+	if err != nil {
+		return "", err
+	}
+
+	if len(items) < 1 {
+		err = errors.New("no rows found")
+		return "", err
+	}
+
+	jm, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
+}
+
 //territory
-func UpdateTerritory(instructions string) error {
+func UpdateTerritory(info string) error {
 	var news []Territory
-	err := json.Unmarshal([]byte(instructions), &news)
+	err := json.Unmarshal([]byte(info), &news)
 	if err != nil {
 		return err
 	}
@@ -768,13 +817,13 @@ func UpdateTerritory(instructions string) error {
 	return nil
 }
 
-func GetTerritories(instructions string) (string, error) {
+func GetTerritories(info string) (string, error) {
 	limits := struct {
 		LoginId  []int `json:"login_id"`
 		RegionId []int `json:"region_id"`
 		TownId   []int `json:"town_id"`
 	}{}
-	err := json.Unmarshal([]byte(instructions), &limits)
+	err := json.Unmarshal([]byte(info), &limits)
 	if err != nil {
 		return "", err
 	}
@@ -817,10 +866,10 @@ func GetTerritories(instructions string) (string, error) {
 }
 
 //portfolio stuff
-func AddWork(instructions string) error {
+func AddWork(info string) error {
 	var w PortfolioWork
 
-	err := json.Unmarshal([]byte(instructions), &w)
+	err := json.Unmarshal([]byte(info), &w)
 	if err != nil {
 		return err
 	}
@@ -840,10 +889,10 @@ func AddWork(instructions string) error {
 	return nil
 }
 
-func UpdateWork(instructions string) error {
+func UpdateWork(info string) error {
 	var w PortfolioWork
 
-	err := json.Unmarshal([]byte(instructions), &w)
+	err := json.Unmarshal([]byte(info), &w)
 	if err != nil {
 		return err
 	}
@@ -869,9 +918,9 @@ func UpdateWork(instructions string) error {
 	return nil
 }
 
-func GetPortfolio(instructions string) (string, error) {
+func GetPortfolio(info string) (string, error) {
 	var ins PortfolioWork
-	err := json.Unmarshal([]byte(instructions), &ins)
+	err := json.Unmarshal([]byte(info), &ins)
 	if err != nil {
 		return "", err
 	}
@@ -897,12 +946,12 @@ func GetPortfolio(instructions string) (string, error) {
 	return string(jm), nil
 }
 
-func MastersPortfolios(instructions string) (string, error) {
+func MastersPortfolios(info string) (string, error) {
 	limits := struct {
 		LoginId   []int  `json:"login_id"`
 		ServiceId []int  `json:"service_id"`
 	}{}
-	err := json.Unmarshal([]byte(instructions), &limits)
+	err := json.Unmarshal([]byte(info), &limits)
 	if err != nil {
 		return "", err
 	}
@@ -959,10 +1008,10 @@ func GetProfileComments(id int32) ([]Comment, error) {
 	return cs, nil
 }
 
-func AddOrder(instructions string) (string, error) {
+func AddOrder(info string) (string, error) {
 	var o Order
 
-	err := json.Unmarshal([]byte(instructions), &o)
+	err := json.Unmarshal([]byte(info), &o)
 	if err != nil {
 		return "", err
 	}
@@ -985,7 +1034,7 @@ func AddOrder(instructions string) (string, error) {
 	return string(jm), nil
 }
 
-func GetOrders(instructions string) (string, error) {
+func GetOrders(info string) (string, error) {
 	limits := struct {
 		OrderBy   string `json:"order_by"`
 		Limit      int    `json:"limit"`
@@ -997,7 +1046,7 @@ func GetOrders(instructions string) (string, error) {
 		BudgetGreater int `json:"budget_greater"`
 		BudgetLess int `json:"budget_less"`
 	}{}
-	err := json.Unmarshal([]byte(instructions), &limits)
+	err := json.Unmarshal([]byte(info), &limits)
 	if err != nil {
 		return "", err
 	}

@@ -275,14 +275,6 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 }
 
 func main() {
-	//init logging
-	f, err := os.OpenFile(os.Getenv("GOSERVICES_LOG"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
-	log.SetOutput(f)
-
 	ok, err := credentials.NewServerTLSFromFile(os.Getenv("SERVICEKEY_PEM"), os.Getenv("SERVICEKEY_KEY"))
 	if err != nil {
 		log.Fatalf("Failed to setup TLS:%v", err)
@@ -293,7 +285,7 @@ func main() {
 		log.Fatal(service + "service failed to listen ", err)
 	}
 
-	println("Hi, I'm a " + service + " grpc comm. service listening...")
+	log.Println("Hi, I'm a " + service + " grpc comm. service listening...")
 
 	s := grpc.NewServer(grpc.Creds(ok))
 	grpcc.RegisterCommunicationServiceServer(s, &server{})

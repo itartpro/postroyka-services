@@ -382,6 +382,13 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "get-choices" {
+		str, err := dbops.GetChoices(instructions)
+		if err != nil {return &res, err}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
 	//territory updates
 	if op == "update-territory-choices" {
 		err := dbops.UpdateTerritory(instructions)
@@ -445,14 +452,6 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 }
 
 func main() {
-	//init logging
-	f, err := os.OpenFile(os.Getenv("GOSERVICES_LOG"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
-	log.SetOutput(f)
-
 	ok, err := credentials.NewServerTLSFromFile(os.Getenv("SERVICEKEY_PEM"), os.Getenv("SERVICEKEY_KEY"))
 	if err != nil {
 		log.Fatalf("Failed to setup TLS:%v", err)
@@ -463,7 +462,7 @@ func main() {
 		log.Fatal(service + "service failed to listen ", err)
 	}
 
-	println("Hi, I'm an " + service + " grpc comm. service listening...")
+	log.Println("Hi, I'm an " + service + " grpc comm. service listening...")
 
 	s := grpc.NewServer(grpc.Creds(ok))
 	grpcc.RegisterCommunicationServiceServer(s, &server{})
