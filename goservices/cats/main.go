@@ -169,7 +169,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 	if op == "read_all" {
 		var cats []*catSummary
-		if err = pgxscan.Select(ctx, conn, &cats, `SELECT `+summary+` FROM cats`); err != nil {
+		if err = pgxscan.Select(ctx, conn, &cats, `SELECT `+summary+` FROM cats ORDER BY sort_order ASC`); err != nil {
 			return &res, err
 		}
 
@@ -203,7 +203,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		str = str[:len(str)-1] // remove last ","
 
 		var cats []*catSummary
-		sqlStr := `SELECT `+summary+` FROM cats WHERE `+whereIn.Column+` IN (`+str+`)`
+		sqlStr := `SELECT `+summary+` FROM cats WHERE `+whereIn.Column+` IN (`+str+`) ORDER BY sort_order ASC`
 		err = pgxscan.Select(ctx, conn, &cats, sqlStr)
 		if err != nil {
 			return &res, err
