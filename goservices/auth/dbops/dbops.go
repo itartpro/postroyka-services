@@ -177,7 +177,7 @@ func UpdateCell(info string) error {
 	}
 
 	if ct.RowsAffected() == 0 {
-		err = errors.New("no rows found")
+		err = errors.New("no records updated")
 		return err
 	}
 
@@ -352,7 +352,7 @@ func UpdateLogin(u User) error {
 	}
 
 	if ct.RowsAffected() == 0 {
-		err = errors.New(`"no rows updated"`)
+		err = errors.New(`"no records updated"`)
 		return err
 	}
 
@@ -457,8 +457,7 @@ func GetMasters(info string) (string, error) {
 	}
 
 	if len(items) < 1 {
-		err = errors.New("no rows found")
-		return "", err
+		return "", nil
 	}
 
 	jm, err := json.Marshal(items)
@@ -540,7 +539,7 @@ func TownsWhereIn(info string) (string, error) {
 	}
 
 	if len(items) < 1 {
-		err = errors.New(`"no rows found""`)
+		err = errors.New(`"no records found""`)
 		return "", err
 	}
 
@@ -561,7 +560,7 @@ func RegionsWhereIn(info string) (string, error) {
 	}
 
 	if len(items) < 1 {
-		err = errors.New(`"no rows found""`)
+		err = errors.New(`"no records found""`)
 		return "", err
 	}
 
@@ -748,8 +747,7 @@ func GetChoices(info string) (string, error) {
 	}
 
 	if len(items) < 1 {
-		err = errors.New("no rows found")
-		return "", err
+		return "", nil
 	}
 
 	jm, err := json.Marshal(items)
@@ -853,7 +851,7 @@ func GetTerritories(info string) (string, error) {
 	}
 
 	if len(items) < 1 {
-		err = errors.New("no rows found")
+		err = errors.New("no records found")
 		return "", err
 	}
 
@@ -911,7 +909,7 @@ func UpdateWork(info string) error {
 	}
 
 	if ct.RowsAffected() == 0 {
-		err = errors.New(`"no rows updated"`)
+		err = errors.New(`"no records updated"`)
 		return err
 	}
 
@@ -978,8 +976,7 @@ func MastersPortfolios(info string) (string, error) {
 	}
 
 	if len(items) < 1 {
-		err = errors.New("no rows found")
-		return "", err
+		return "", nil
 	}
 
 	jm, err := json.Marshal(items)
@@ -1100,7 +1097,7 @@ func GetOrders(info string) (string, error) {
 	}
 
 	if len(orders) < 1 {
-		err = errors.New("no rows found")
+		err = errors.New("no records found")
 		return "", err
 	}
 
