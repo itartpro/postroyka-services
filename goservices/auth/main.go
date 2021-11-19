@@ -196,6 +196,22 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "update-last-online" {
+		var user dbops.User
+		err := json.Unmarshal([]byte(instructions), &user)
+		if err != nil {
+			return &res, err
+		}
+
+		err = dbops.UpdateLastOnline(user)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", `"updated successfully"`)
+		return &res, nil
+	}
+
 	if op == "get-masters" {
 		str, err := dbops.GetMasters(instructions)
 		if err != nil {return &res, err}

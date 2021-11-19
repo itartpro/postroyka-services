@@ -359,6 +359,27 @@ func UpdateLogin(u User) error {
 	return nil
 }
 
+func UpdateLastOnline(u User) error {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ct, err := conn.Exec(ctx, `UPDATE logins SET last_online = $1 WHERE id = $2`, u.LastOnline, u.Id)
+	if err != nil {
+		return err
+	}
+
+	if ct.RowsAffected() == 0 {
+		err = errors.New(`"no records updated"`)
+		return err
+	}
+
+	return nil
+}
+
 func UpdateRefresh(id string, hash string) error {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
