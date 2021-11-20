@@ -1054,22 +1054,50 @@ func AddOrder(info string) (string, error) {
 
 func GetOrders(info string) (string, error) {
 	limits := struct {
-		OrderBy   string `json:"order_by"`
-		Limit      int    `json:"limit"`
-		Offset     int    `json:"offset"`
-		ServiceId []int  `json:"service_id"`
-		TownId    []int  `json:"town_id"`
-		RegionId  []int  `json:"region_id"`
-		LoginId   []int  `json:"login_id"`
+		OrderBy    string `json:"order_by"`
+		Limit         int `json:"limit"`
+		Offset        int `json:"offset"`
+		Id 		    []int `json:"id"`
+		ServiceId   []int `json:"service_id"`
+		TownId      []int `json:"town_id"`
+		RegionId    []int `json:"region_id"`
+		LoginId     []int `json:"login_id"`
 		BudgetGreater int `json:"budget_greater"`
-		BudgetLess int `json:"budget_less"`
+		BudgetLess    int `json:"budget_less"`
 	}{}
 	err := json.Unmarshal([]byte(info), &limits)
 	if err != nil {
 		return "", err
 	}
 
-	sql := `SELECT * FROM orders`
+	sql := `SELECT * FROM orders WHERE id > 0`
+	if len(limits.Id) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.Id, "id")
+	}
+
+	if len(limits.ServiceId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.ServiceId, "service_id")
+	}
+
+	if len(limits.TownId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.TownId, "town_id")
+	}
+
+	if len(limits.RegionId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.RegionId, "region_id")
+	}
+
+	if len(limits.LoginId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.LoginId, "login_id")
+	}
+
+	if limits.BudgetGreater != 0 {
+		sql += `AND WHERE budget > `+strconv.Itoa(limits.BudgetGreater)
+	}
+
+	if limits.BudgetLess != 0 && limits.BudgetGreater < limits.BudgetLess {
+		sql += `AND WHERE budget < `+strconv.Itoa(limits.BudgetLess)
+	}
 	if limits.OrderBy != "" {
 		sql += ` ORDER BY `+limits.OrderBy
 	}
@@ -1080,29 +1108,6 @@ func GetOrders(info string) (string, error) {
 		sql += ` OFFSET `+strconv.Itoa(limits.Offset)
 	}
 
-	if len(limits.ServiceId) > 0 {
-		sql += ` ` + inSqlFromInts(limits.ServiceId, "service_id")
-	}
-
-	if len(limits.TownId) > 0 {
-		sql += ` ` + inSqlFromInts(limits.TownId, "town_id")
-	}
-
-	if len(limits.RegionId) > 0 {
-		sql += ` ` + inSqlFromInts(limits.RegionId, "region_id")
-	}
-
-	if len(limits.LoginId) > 0 {
-		sql += ` ` + inSqlFromInts(limits.LoginId, "login_id")
-	}
-
-	if limits.BudgetGreater != 0 {
-		sql += ` WHERE budget > `+strconv.Itoa(limits.BudgetGreater)
-	}
-
-	if limits.BudgetLess != 0 && limits.BudgetGreater < limits.BudgetLess {
-		sql += ` WHERE budget < `+strconv.Itoa(limits.BudgetLess)
-	}
 
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
