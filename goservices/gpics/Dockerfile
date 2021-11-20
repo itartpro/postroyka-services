@@ -20,5 +20,6 @@ COPY $MAINPNAME .
 
 ENTRYPOINT chown -R $MYUSERNAME:$MYUSERGROUP /home/$MYUSERNAME/appservices && \
 exec runuser -u $MYUSERNAME ./$MAINPNAME
+#exec runuser -u $MYUSERNAME go run main.go
 ## For build
 #CMD go build -ldflags="-s -w" -o $MAINPNAME && ./$MAINPNAME

@@ -208,7 +208,7 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 			return &res, err
 		}
 
-		res.Result = result("true", `"updated successfully"`)
+		res.Result = result("true", `"updated activity"`)
 		return &res, nil
 	}
 
