@@ -34,14 +34,27 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	//whatever
 	if op == "update-cell" {
 		err := dbops.UpdateCell(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", instructions)
 		return &res, nil
 	}
 
 	if op == "get-row" {
 		contents, err := dbops.GetRow(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
+		res.Result = result("true", contents)
+		return &res, nil
+	}
+
+	if op == "delete-row" {
+		contents, err := dbops.DeleteRow(instructions)
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", contents)
 		return &res, nil
 	}
@@ -214,7 +227,18 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 	if op == "get-masters" {
 		str, err := dbops.GetMasters(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	if op == "get-expanded-masters" {
+		str, err := dbops.GetExpandedMasters(instructions)
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
@@ -279,14 +303,18 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 	if op == "towns-where-in" {
 		str, err := dbops.TownsWhereIn(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
 
 	if op == "regions-where-in" {
 		str, err := dbops.RegionsWhereIn(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
@@ -400,7 +428,9 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 
 	if op == "get-choices" {
 		str, err := dbops.GetChoices(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
@@ -408,14 +438,18 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	//territory updates
 	if op == "update-territory-choices" {
 		err := dbops.UpdateTerritory(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", `"update-territory-choices"`)
 		return &res, nil
 	}
 
 	if op == "get-territories" {
 		str, err := dbops.GetTerritories(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
@@ -423,28 +457,36 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	//portfolio stuff
 	if op == "add-work" {
 		err := dbops.AddWork(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", `"added successfully"`)
 		return &res, nil
 	}
 
 	if op == "update-work" {
 		err := dbops.UpdateWork(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", `"updated successfully"`)
 		return &res, nil
 	}
 
 	if op == "get-portfolio" {
 		str, err := dbops.GetPortfolio(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
 
 	if op == "masters-portfolios" {
 		str, err := dbops.MastersPortfolios(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
@@ -452,15 +494,47 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 	//orders
 	if op == "add-order" {
 		str, err := dbops.AddOrder(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
 		return &res, nil
 	}
 
 	if op == "get-orders" {
 		str, err := dbops.GetOrders(instructions)
-		if err != nil {return &res, err}
+		if err != nil {
+			return &res, err
+		}
 		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	//offers
+	if op == "add-offer" {
+		str, err := dbops.AddOffer(instructions)
+		if err != nil {
+			return &res, err
+		}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	if op == "get-offers" {
+		str, err := dbops.GetOffers(instructions)
+		if err != nil {
+			return &res, err
+		}
+		res.Result = result("true", str)
+		return &res, nil
+	}
+
+	if op == "update-offer" {
+		err := dbops.UpdateOffer(instructions)
+		if err != nil {
+			return &res, err
+		}
+		res.Result = result("true", `"updated successfully"`)
 		return &res, nil
 	}
 
@@ -475,7 +549,7 @@ func main() {
 
 	lis, err := net.Listen("tcp", ":50003")
 	if err != nil {
-		log.Fatal(service + "service failed to listen ", err)
+		log.Fatal(service+"service failed to listen ", err)
 	}
 
 	log.Println("Hi, I'm an " + service + " grpc comm. service listening...")
@@ -484,6 +558,6 @@ func main() {
 	grpcc.RegisterCommunicationServiceServer(s, &server{})
 	err = s.Serve(lis)
 	if err != nil {
-		log.Fatal("Failed to serve grpc server " + service + ":", err)
+		log.Fatal("Failed to serve grpc server "+service+":", err)
 	}
 }

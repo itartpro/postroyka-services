@@ -110,6 +110,19 @@ type Order struct {
 	Budget      int32  `json:"budget"`
 	Created  time.Time `json:"created"`
 	Completed   bool   `json:"completed"`
+	Time 		string `json:"time"`
+}
+
+type Offer struct {
+	Id          int32  `json:"id"`
+	OrderId     int32  `json:"order_id"`
+	CustomerId  int32  `json:"customer_id"`
+	MasterId    int32  `json:"master_id"`
+	Accept      int16  `json:"accept"`
+	Price       string `json:"price"`
+	Meeting     string `json:"meeting"`
+	Description string `json:"description"`
+	Created     time.Time `json:"created"`
 }
 
 type Territory struct {
@@ -159,7 +172,7 @@ func UpdateCell(info string) error {
 		return err
 	}
 
-	if c.Table != "logins" && c.Table != "regions" && c.Table != "towns" {
+	if c.Table != "logins" && c.Table != "regions" && c.Table != "towns" && c.Table != "offers" {
 		err = errors.New("access denied")
 		return err
 	}
@@ -226,6 +239,28 @@ func GetRow(info string) (string, error) {
 	}
 
 	return "",nil
+}
+
+func DeleteRow(info string) (string, error) {
+	var c Cell
+	err := json.Unmarshal([]byte(info), &c)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	_, err = conn.Exec(ctx, `DELETE FROM `+c.Table+` WHERE `+c.Column+` = $1`, c.Value)
+	if err != nil {
+		return "", err
+	}
+
+	res := "deleted row from "+c.Table
+	return `"`+res+`"`,nil
 }
 
 func inSqlFromInts(ints []int, column string) string {
@@ -482,6 +517,67 @@ func GetMasters(info string) (string, error) {
 	}
 
 	jm, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
+}
+
+func GetExpandedMasters(info string) (string, error) {
+	limits := struct {
+		LoginId  []int `json:"login_id"`
+	}{}
+	err := json.Unmarshal([]byte(info), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	summary := `about, avatar, balance, company, created, email, first_name, id, last_name, last_online, legal, level, paternal_name, phone, rating, region_id, town_id`
+	sql := `SELECT `+summary+` FROM logins WHERE level = 2`
+	if len(limits.LoginId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.LoginId, "id")
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	expanded := struct {
+		Masters []*User  `json:"masters"`
+		Towns   []*Town  `json:"towns"`
+		Regions []*Region `json:"regions"`
+	}{}
+
+	err = pgxscan.Select(ctx, conn, &expanded.Masters, sql)
+	if err != nil {
+		return "", err
+	}
+
+	townsSql := "SELECT * FROM towns WHERE id IN ("
+	for _, v := range expanded.Masters {
+		townsSql += strconv.Itoa(int(v.TownId)) + `,`
+	}
+	townsSql = townsSql[:len(townsSql)-1] + ")"
+	err = pgxscan.Select(ctx, conn, &expanded.Towns, townsSql)
+	if err != nil {
+		return "", err
+	}
+
+	regionSql := "SELECT * FROM regions WHERE id IN ("
+	for _, v := range expanded.Masters {
+		regionSql += strconv.Itoa(int(v.RegionId)) + `,`
+	}
+	regionSql = regionSql[:len(regionSql)-1] + ")"
+	err = pgxscan.Select(ctx, conn, &expanded.Regions, regionSql)
+	if err != nil {
+		return "", err
+	}
+
+	jm, err := json.Marshal(expanded)
 	if err != nil {
 		return "", err
 	}
@@ -1041,8 +1137,8 @@ func AddOrder(info string) (string, error) {
 	}
 	defer conn.Close()
 
-	sql := `INSERT INTO orders (login_id, service_id, name, title, description, region_id, town_id, budget, created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
-	row := conn.QueryRow(ctx, sql, o.LoginId, o.ServiceId, o.Name, o.Title, o.Description, o.RegionId, o.TownId, o.Budget, o.Created)
+	sql := `INSERT INTO orders (login_id, service_id, name, title, description, region_id, town_id, budget, created, time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
+	row := conn.QueryRow(ctx, sql, o.LoginId, o.ServiceId, o.Name, o.Title, o.Description, o.RegionId, o.TownId, o.Budget, o.Created, o.Time)
 	if err = row.Scan(&o.Id); err != nil {
 		return "", err
 	}
@@ -1133,4 +1229,116 @@ func GetOrders(info string) (string, error) {
 	}
 
 	return string(jm), nil
+}
+
+func AddOffer(info string) (string, error) {
+	var o Offer
+
+	err := json.Unmarshal([]byte(info), &o)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	sql := `INSERT INTO offers (order_id, customer_id, master_id, accept, price, meeting, description, created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
+	row := conn.QueryRow(ctx, sql, o.OrderId, o.CustomerId, o.MasterId, o.Accept, o.Price, o.Meeting, o.Description, o.Created)
+	if err = row.Scan(&o.Id); err != nil {
+		return "", err
+	}
+
+	jm, err := json.Marshal(o)
+
+	return string(jm), nil
+}
+
+func GetOffers(info string) (string, error) {
+	limits := struct {
+		Id  	   []int `json:"id"`
+		OrderId    []int `json:"order_id"`
+		CustomerId []int `json:"customer_id"`
+		MasterId   []int `json:"master_id"`
+		OrderBy    string `json:"order_by"`
+	}{}
+
+	err := json.Unmarshal([]byte(info), &limits)
+	if err != nil {
+		return "", err
+	}
+
+	sql := `SELECT * FROM offers WHERE id > 0`
+	if len(limits.Id) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.Id, "id")
+	}
+	if len(limits.OrderId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.OrderId, "order_id")
+	}
+	if len(limits.CustomerId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.CustomerId, "customer_id")
+	}
+	if len(limits.MasterId) > 0 {
+		sql += `AND ` + inSqlFromInts(limits.MasterId, "master_id")
+	}
+	if limits.OrderBy != "" {
+		sql += ` ORDER BY `+limits.OrderBy
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	var offers []*Offer
+	err = pgxscan.Select(ctx, conn, &offers, sql)
+	if err != nil {
+		return "", err
+	}
+
+	if len(offers) < 1 {
+		err = errors.New("no records found")
+		return "", err
+	}
+
+	jm, err := json.Marshal(offers)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jm), nil
+}
+
+func UpdateOffer(info string) error {
+	var o Offer
+
+	err := json.Unmarshal([]byte(info), &o)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	ct, err := conn.Exec(ctx,
+		`UPDATE offers SET price = $1, description = $2, meeting = $3, accept = $4 WHERE id = $5`,
+		o.Price, o.Description, o.Meeting, o.Accept, o.Id)
+	if err != nil {
+		return err
+	}
+
+	if ct.RowsAffected() == 0 {
+		err = errors.New(`"no records updated"`)
+		return err
+	}
+
+	return nil
 }
