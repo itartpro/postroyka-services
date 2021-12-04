@@ -312,6 +312,24 @@ func GetProfile(u User) (User, error) {
 	return u, nil
 }
 
+func GetSimpleProfile(u User) (User, error) {
+	ctx := context.Background()
+	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return u, err
+	}
+	defer conn.Close()
+
+	summary := `about, avatar, company, created, first_name, id, last_name, last_online, legal, level, paternal_name, rating, region_id, town_id`
+
+	err = pgxscan.Get(ctx, conn, &u, `SELECT `+summary+` FROM logins WHERE id = $1`, u.Id)
+	if err != nil {
+		return u, err
+	}
+
+	return u, nil
+}
+
 func TryRegister(u User) (string, error) {
 	ctx := context.Background()
 	conn, err := pgxpool.Connect(ctx, os.Getenv("DATABASE_URL"))

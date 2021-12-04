@@ -126,6 +126,28 @@ func (*server) PassData(ctx context.Context, req *grpcc.DataRequest) (*grpcc.Dat
 		return &res, nil
 	}
 
+	if op == "get-simple-profile" {
+		var u dbops.User
+		err := json.Unmarshal([]byte(instructions), &u)
+		if err != nil {
+			return &res, err
+		}
+
+		user, err := dbops.GetSimpleProfile(u)
+		if err != nil {
+			return &res, err
+		}
+		user.Password = ""
+
+		jm, err := json.Marshal(user)
+		if err != nil {
+			return &res, err
+		}
+
+		res.Result = result("true", string(jm))
+		return &res, nil
+	}
+
 	if op == "hash" {
 		var in dbops.User
 		err := json.Unmarshal([]byte(instructions), &in)
